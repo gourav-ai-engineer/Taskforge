@@ -180,6 +180,9 @@ textarea, input[type="text"], .field-row input { color: #25323c; }
 .extracted-title strong { display: block; color: #42513c; font-size: 11px; }
 .extracted-title small { display: block; margin-top: 3px; color: #929b8e; font-size: 9px; }
 .extracted-card ul { padding-left: 20px; margin: 12px 0 0; color: #61705a; font-size: 10px; line-height: 1.7; overflow-wrap: anywhere; }
+.extracted-card li { margin-bottom: 9px; }
+.extracted-card li strong { color: #465742; }
+.fact-evidence { display: block; margin-top: 3px; color: #8c9585; font-size: 9px; line-height: 1.5; }
 .extracted-card > p { margin: 13px 0 0; color: #7b8676; font-size: 10px; line-height: 1.6; }
 .column-intro { margin: -5px 0 13px; color: #858d87; font-size: 10px; line-height: 1.6; }
 .fields-card { padding: 18px; border: 1px solid #e1e5dc; border-radius: 11px; background: #fff; }
