@@ -157,6 +157,26 @@ export function analyzeMessage(
   const findings: Finding[] = [];
   const required = new Set(options.requiredFields);
 
+  if (input.length > MAX_MESSAGE_LENGTH) {
+    const tooLong: Finding = {
+      id: "message-too-long",
+      kind: "missing",
+      severity: "high",
+      field: "taskTitle",
+      title: "Message exceeds the supported length",
+      excerpt: text.slice(0, 180),
+      why: "Long messages are harder to review reliably with the local rule checks.",
+      question: "Can you shorten the message to " + MAX_MESSAGE_LENGTH.toLocaleString() + " characters or fewer?"
+    };
+    return {
+      originalMessage,
+      fields,
+      findings: [tooLong],
+      explicitFacts: [],
+      characterCount: input.length
+    };
+  }
+
   if (!text) {
     addFinding(findings, {
       kind: "missing",
