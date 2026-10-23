@@ -135,6 +135,37 @@ describe("analyzeMessage", () => {
     expect(result.findings.some((finding) => finding.id === "multiple-actions-no-sequence")).toBe(true);
   });
 
+  it("extracts a recipient from a sentence with a named person", () => {
+    const result = analyzeMessage(
+      "Owner: Priya. Deliverable: Submit the final PDF report. Deadline: 2026-10-30 at 5 PM IST. Send the report to Arjun.",
+      { requiredFields: ["owner", "deliverable", "deadline", "recipient"] }
+    );
+    expect(result.fields.recipient).toBe("Arjun");
+    expect(result.findings.some((finding) => finding.id === "missing-recipient")).toBe(false);
+  });
+
+  it("extracts a team recipient and keeps deadline text from swallowing the next action", () => {
+    const result = analyzeMessage(
+      "Please prepare the weekly report by Friday and send it to the team.",
+      { requiredFields: ["owner", "deliverable", "deadline", "recipient"] }
+    );
+    expect(result.fields.deadline).toBe("Friday");
+    expect(result.fields.recipient.toLowerCase()).toBe("the team");
+    expect(result.fields.deliverable.toLowerCase()).toContain("weekly report");
+    expect(result.fields.nextAction.toLowerCase()).toBe("prepare the weekly report by friday");
+  });
+
+  it("extracts a named actor as the owner when the message says they will do the work", () => {
+    const result = analyzeMessage(
+      "Ravi will update the documentation and send the PDF to the project team.",
+      { requiredFields: ["owner", "recipient", "deliverable"] }
+    );
+    expect(result.fields.owner).toBe("Ravi");
+    expect(result.fields.recipient.toLowerCase()).toBe("the project team");
+    expect(result.fields.deliverable.toLowerCase()).toContain("pdf");
+    expect(result.findings.some((finding) => finding.id === "missing-owner")).toBe(false);
+  });
+
   it("attaches source evidence to explicitly extracted facts", () => {
     const result = analyzeMessage("Owner: Riya Sharma\nDeliverable: Markdown report", { requiredFields: [] });
     expect(result.explicitFacts.find((fact) => fact.field === "owner")).toEqual({
