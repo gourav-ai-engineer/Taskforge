@@ -243,6 +243,8 @@ export function analyzeMessage(
   const deadlineSignal = /\b(?:asap|soon|shortly|later|before the meeting|by the meeting|end of day|eod|tomorrow|tonight|today|next week|next month|by friday|by monday|by tuesday|by wednesday|by thursday|by saturday|by sunday|\d{4}-\d{2}-\d{2})\b/i;
   const hasDeadline = Boolean(fields.deadline) || deadlineSignal.test(text);
   const relativeDeadline = /\b(?:asap|soon|shortly|later|before the meeting|by the meeting|end of day|eod|tomorrow|tonight|today|next week|next month|by friday|by monday|by tuesday|by wednesday|by thursday|by saturday|by sunday)\b/i;
+  const relativeDeadlineExcerpt = sentenceExcerpt(originalMessage, relativeDeadline);
+  const hasSpecificDeadlineTime = /\b(?:at\s*)?\d{1,2}(?::\d{2})?\s*(?:am|pm)\b|\b\d{1,2}:\d{2}\b|\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}\s+(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?:\s+\d{4})?\b/i.test(relativeDeadlineExcerpt);
   if (required.has("deadline") && !hasDeadline) {
     addFinding(findings, {
       kind: "missing",
@@ -253,13 +255,13 @@ export function analyzeMessage(
       why: "Without a requested time, the recipient may not know when the work is needed.",
       question: "Is there a deadline? If so, what exact date and time should be used?"
     }, "missing-deadline");
-  } else if (required.has("deadline") && relativeDeadline.test(text)) {
+  } else if (required.has("deadline") && relativeDeadline.test(text) && !hasSpecificDeadlineTime) {
     addFinding(findings, {
       kind: "ambiguous",
       severity: "medium",
       field: "deadline",
       title: "Timing may be relative or unclear",
-      excerpt: sentenceExcerpt(originalMessage, relativeDeadline) || text.slice(0, 180),
+      excerpt: relativeDeadlineExcerpt || text.slice(0, 180),
       why: "Phrases such as “soon” or “before the meeting” depend on context and do not identify a specific time.",
       question: "What exact date and time does this deadline refer to?"
     }, "relative-deadline");

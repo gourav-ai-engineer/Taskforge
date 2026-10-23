@@ -45,6 +45,12 @@ describe("analyzeMessage", () => {
     expect(result.fields.deadline).toBe("");
   });
 
+  it("does not flag an explicit weekday and clock time as merely relative", () => {
+    const result = analyzeMessage("Finish the report by Friday at 4 PM IST.", { requiredFields: ["deadline"] });
+    expect(result.findings.some((finding) => finding.id === "relative-deadline")).toBe(false);
+    expect(result.fields.deadline).toMatch(/Friday at 4 PM IST/i);
+  });
+
   it("flags vague language and ambiguous references", () => {
     const result = analyzeMessage("Can someone finish it and send it over?");
     const ids = result.findings.map((finding) => finding.id);
