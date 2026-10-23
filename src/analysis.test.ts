@@ -72,6 +72,20 @@ describe("analyzeMessage", () => {
     expect(result.findings.some((finding) => finding.id === "multi-step-sequence")).toBe(true);
   });
 
+  it("flags combined actions when no order is made explicit", () => {
+    const result = analyzeMessage("Can someone finish the evaluation and send it over before the meeting?");
+    expect(result.findings.some((finding) => finding.id === "multiple-actions-no-sequence")).toBe(true);
+  });
+
+  it("attaches source evidence to explicitly extracted facts", () => {
+    const result = analyzeMessage("Owner: Riya Sharma\nDeliverable: Markdown report", { requiredFields: [] });
+    expect(result.explicitFacts.find((fact) => fact.field === "owner")).toEqual({
+      field: "owner",
+      value: "Riya Sharma",
+      evidence: "Owner: Riya Sharma"
+    });
+  });
+
   it("keeps unknown values empty rather than inventing them", () => {
     const result = analyzeMessage("Please complete the task.");
     expect(result.fields.owner).toBe("");
