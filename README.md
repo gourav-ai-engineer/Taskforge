@@ -35,7 +35,7 @@ The analyzer uses heuristics, not a language model. Findings are suggestions for
 - GitHub Actions for CI
 
 ## Run locally
-Prerequisites: Node.js 20.19+ (or 22.12+) and a current npm release.
+Prerequisites: Node.js 20.19+ or 22.13+ and a current npm release.
 
     npm install
     npm run dev
@@ -44,8 +44,10 @@ Vite prints the local development URL, usually http://localhost:5173.
 
 ## Quality checks
 
-    npm test
+    npm run lint
     npm run typecheck
+    npm test
+    npm audit --audit-level=high
     npm run build
 
 ## Production preview
