@@ -222,22 +222,25 @@ function findFacts(text: string): HandoffFields {
 
   fields.owner = capture(text, [
     /\b(?:owner|assignee|assigned to)\s*:\s*([^\n.;]+)/i,
-    /\b(?:owner|assignee|assigned to)\s+(?:is\s+)?([A-Z][A-Za-z'-]*(?:\s+[A-Z][A-Za-z'-]*){0,2})\b/
+    /\b(?:owner|assignee|assigned to)\s+(?:is\s+)?([A-Z][A-Za-z'-]*(?:\s+[A-Z][A-Za-z'-]*){0,2})\b/i,
+    /\b([A-Z][A-Za-z'-]*(?:\s+[A-Z][A-Za-z'-]*){0,2})\s+will\s+(?:finish|complete|prepare|create|review|fix|test|build|send|share|submit|publish|run|analy[sz]e|write|deliver|update|check|confirm|provide|verify|deploy|schedule|contact|coordinate|document|design|evaluate|open|close|compare|extract|summari[sz]e|measure|approve|install|execute|export)\b/
   ]);
 
   fields.recipient = capture(text, [
-    /\b(?:recipient|send to|deliver to|share with)\s*:\s*([^\n.;]+)/i,
-    /\b(?:send|share|deliver)\b[^.!?\n]{0,60}\bto\s+([A-Z][A-Za-z'-]*(?:\s+[A-Z][A-Za-z'-]*){0,2})\b/
+    /\brecipient\s*:\s*([^\n.;]+)/i,
+    /\b(?:send|share|deliver|email|forward|submit)\s*:\s*([^\n.;]+)/i,
+    /\b(?:send|share|deliver|email|forward|submit)\b[^.!?\n]{0,80}\bto\s+((?:the\s+)?(?:[A-Za-z'-]+\s+team|team)|[A-Z][A-Za-z'-]*(?:\s+[A-Z][A-Za-z'-]*){0,2})\b/i
   ]);
 
   fields.deliverable = capture(text, [
     /\b(?:deliverable|expected output|output|format)\s*:\s*([^\n.!?]+)/i,
-    /\b(?:prepare|create|produce|submit|deliver|write)\s+(?:a|an|the)?\s*((?:evaluation|status|research|design|test|weekly|final|project)?\s*(?:report|document|presentation|slides|spreadsheet|csv|notebook|prototype|demo|pull request|pr|summary|analysis))\b/i
+    /\b(?:prepare|create|produce|submit|deliver|write)\s+(?:a|an|the)?\s*((?:evaluation|status|research|design|test|weekly|final|project)?\s*(?:report|document|presentation|slides|spreadsheet|csv|notebook|prototype|demo|pull request|pr|summary|analysis))\b/i,
+    /\b(?:send|share|deliver|email|forward|attach|submit)\s+(?:the|a|an)?\s*((?:final\s+)?(?:pdf|csv|spreadsheet|document|report|presentation|slides|summary|analysis|notebook|prototype|demo|pull request|pr))\b/i
   ]);
 
   fields.deadline = capture(text, [
-    /\b(?:deadline|due date|due)\s*(?::|is)?\s*([^\n.!?]+)/i,
-    /\bby\s+((?:\d{1,2}(?::\d{2})?\s*(?:am|pm)?|(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)(?:\s+\w+)?|tomorrow|tonight|today|next week|end of day|EOD|the meeting|Friday|Monday)[^\n.!?]*)/i
+    /\b(?:deadline|due date|due)\s*(?::|is)?\s*((?:\d{4}-\d{2}-\d{2}|(?:(?:next|this)\s+)?(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|tomorrow|tonight|today|next week|end of day|EOD|the meeting|ASAP|soon|shortly|later)|\d{1,2}\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)(?:\s+\d{4})?)(?:\s+(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm)(?:\s+[A-Z]{2,5})?)?)/i,
+    /\b(?:by|before|due(?:\s+on)?)\s+((?:\d{4}-\d{2}-\d{2}|(?:(?:next|this)\s+)?(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|tomorrow|tonight|today|next week|end of day|EOD|the meeting|ASAP|soon|shortly|later)|\d{1,2}\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)(?:\s+\d{4})?)(?:\s+(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm)(?:\s+[A-Z]{2,5})?)?)/i
   ]);
 
   fields.dependency = capture(text, [
@@ -257,6 +260,13 @@ function findFacts(text: string): HandoffFields {
     /(?:^|\n)\s*(?:please\s+)?((?:finish|complete|prepare|create|review|fix|test|build|send|share|submit|publish|run|analy[sz]e|write|deliver|update|check|confirm|provide|verify|deploy|schedule|contact|coordinate|document|design|evaluate|open|close|compare|extract|summari[sz]e|measure|approve|install|execute|export)\b[^\n.!?]*)/i,
     /\b(?:you should|you must|you need to|need to|should|must)\s+((?:finish|complete|prepare|create|review|fix|test|build|send|share|submit|publish|run|analy[sz]e|write|deliver|update|check|confirm|provide|verify|deploy|schedule|contact|coordinate|document|design|evaluate|open|close|compare|extract|summari[sz]e|measure|approve|install|execute|export)\b[^\n.!?]*)/i
   ]);
+
+  if (fields.nextAction) {
+    fields.nextAction = fields.nextAction.replace(
+      /\s+and\s+(?:then\s+)?(?:send|share|deliver|email|forward|update|prepare|create|finish|complete|build|run|review|test|publish|submit|attach|write|check|verify|deploy)\b[\s\S]*$/i,
+      ""
+    ).trim();
+  }
 
   return fields;
 }
