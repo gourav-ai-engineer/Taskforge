@@ -2,7 +2,7 @@
 
 **Audit date:** 23 October 2026  
 **Repository:** https://github.com/gourav-ai-engineer/Taskforge  
-**Audited implementation commit:** \`5a667dca8cfcd57f89d2e957c4dd7a3ed99cd44a\`  
+**Audited implementation commit:** `5a667dca8cfcd57f89d2e957c4dd7a3ed99cd44a`  
 **Verification run:** https://github.com/gourav-ai-engineer/Taskforge/actions/runs/39915764802
 
 ## Overall status
@@ -16,10 +16,10 @@ This is not a claim of full browser compatibility, WCAG conformance, a public de
 ## Repository and architecture inspected
 
 - React + TypeScript frontend built with Vite.
-- Deterministic rule-based analysis in \`src/analysis.ts\`.
-- Main user interface and workflow state in \`src/App.tsx\`.
-- Responsive/accessibility-oriented styling in \`src/styles.css\`.
-- Vitest unit tests in \`src/analysis.test.ts\`.
+- Deterministic rule-based analysis in `src/analysis.ts`.
+- Main user interface and workflow state in `src/App.tsx`.
+- Responsive/accessibility-oriented styling in `src/styles.css`.
+- Vitest unit tests in `src/analysis.test.ts`.
 - ESLint configuration, TypeScript project configuration, npm scripts, GitHub Actions CI, and README.
 - No backend, account system, database, external model provider, or cloud persistence is required for the current MVP.
 
@@ -67,8 +67,8 @@ The passing run is linked above. The test suite primarily validates the determin
 
 ### P2 — Reproducibility and test depth
 
-- Add and commit an npm lockfile from a trusted dependency installation, then change CI from \`npm install\` to \`npm ci\`.
-- Pin the npm version used by CI instead of installing an unpinned \`npm@latest\`.
+- Add and commit an npm lockfile from a trusted dependency installation, then change CI from `npm install` to `npm ci`.
+- Pin the npm version used by CI instead of installing an unpinned `npm@latest`.
 - Consider adding a lightweight UI/component test setup for message entry, example loading, validation, reset, and manual-edit protection. Do this only if it can be installed and verified without destabilizing the MVP.
 - Deploy to a static host, then verify the actual public URL and refresh behavior before adding it to the submission.
 
