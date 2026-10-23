@@ -404,7 +404,10 @@ export function analyzeMessage(
   }
 
   const actionableReference = /\b(?:finish|complete|review|fix|update|change|submit|do|send|share|deliver|publish|replace|move|delete|attach)\s+(?:it|them)\b|\b(?:finish|complete|review|fix|update|change|submit|do|send|share|deliver|publish|replace|move|delete|attach)\s+(?:this|that|these|those)\b(?=\s*(?:[,.!?;:]|$)|\s+(?:over|to|by|before|after|when|once|today|tomorrow|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|now|again|in|out|there|later|first|next|too)\b)/i;
-  if (actionableReference.test(text)) {
+  const referenceMatch = actionableReference.exec(text);
+  const precedingText = referenceMatch ? text.slice(0, referenceMatch.index) : "";
+  const hasClearRecentAntecedent = /\b(?:report|dashboard|pdf|document|file|spreadsheet|slides|evaluation|summary|analysis|notebook|prototype|demo|presentation|artifact)\b[^.!?]{0,50}$/i.test(precedingText);
+  if (referenceMatch && !hasClearRecentAntecedent) {
     const pronounExcerpt = sentenceExcerpt(originalMessage, actionableReference);
     addFinding(findings, {
       kind: "ambiguous",
