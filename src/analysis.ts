@@ -110,6 +110,49 @@ function addFinding(
   findings.push({ ...finding, id });
 }
 
+
+const LABEL_PATTERNS: Record<FieldKey, RegExp> = {
+  taskTitle: /\b(?:task|title)\s*:/i,
+  owner: /\b(?:owner|assignee|assigned to)\s*:/i,
+  recipient: /\brecipient\s*:/i,
+  deliverable: /\b(?:deliverable|expected output|output|format)\s*:/i,
+  deadline: /\b(?:deadline|due date|due)\s*:/i,
+  dependency: /\b(?:prerequisite|dependency)\s*:/i,
+  nextAction: /\b(?:next action|next step)\s*:/i
+};
+
+function sourceEvidence(originalMessage: string, field: FieldKey, value: string): string {
+  const valueLower = value.toLowerCase();
+  const lines = originalMessage.split(/\r?\n/);
+  const labeledLine = lines.find((line) =>
+    LABEL_PATTERNS[field].test(line) && line.toLowerCase().includes(valueLower)
+  );
+  if (labeledLine) return normalizeWhitespace(labeledLine).slice(0, 180);
+
+  if (field === "dependency") {
+    const dependencyPatterns = [
+      /\b(?:after|once|when)\s+[^,.;!?]+/i,
+      /\b(?:depends on|blocked by|waiting for)\s+[^,.;!?]+/i,
+      /\b(?:no dependencies|no dependency|no prerequisites|no prerequisite|does not depend on anything)\b/i
+    ];
+    const clause = dependencyPatterns
+      .map((pattern) => originalMessage.match(pattern)?.[0] ?? "")
+      .find((match) => match.toLowerCase().includes(valueLower));
+    if (clause) return normalizeWhitespace(clause).slice(0, 180);
+  }
+
+  const valueIndex = originalMessage.toLowerCase().indexOf(valueLower);
+  if (valueIndex < 0) return value;
+  const start = Math.max(0, valueIndex - 38);
+  const end = Math.min(originalMessage.length, valueIndex + value.length + 38);
+  const snippet = normalizeWhitespace(originalMessage.slice(start, end));
+  return (start > 0 ? "…" : "") + snippet + (end < originalMessage.length ? "…" : "");
+}
+
+function hasSpecificDeadline(value: string): boolean {
+  return /\b(?:at\s*)?\d{1,2}(?::\d{2})?\s*(?:am|pm)\b|\b\d{1,2}:\d{2}\b|\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}\s+(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?:\s+\d{4})?\b/i.test(value);
+}
+
 function findFacts(text: string): HandoffFields {
   const fields = EMPTY_FIELDS();
 
@@ -246,8 +289,9 @@ export function analyzeMessage(
   const deadlineSignal = /\b(?:asap|soon|shortly|later|before the meeting|by the meeting|end of day|eod|tomorrow|tonight|today|next week|next month|by friday|by monday|by tuesday|by wednesday|by thursday|by saturday|by sunday|\d{4}-\d{2}-\d{2})\b/i;
   const hasDeadline = Boolean(fields.deadline) || deadlineSignal.test(text);
   const relativeDeadline = /\b(?:asap|soon|shortly|later|before the meeting|by the meeting|end of day|eod|tomorrow|tonight|today|next week|next month|by friday|by monday|by tuesday|by wednesday|by thursday|by saturday|by sunday)\b/i;
-  const relativeDeadlineExcerpt = sentenceExcerpt(originalMessage, relativeDeadline);
-  const hasSpecificDeadlineTime = /\b(?:at\s*)?\d{1,2}(?::\d{2})?\s*(?:am|pm)\b|\b\d{1,2}:\d{2}\b|\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}\s+(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?:\s+\d{4})?\b/i.test(relativeDeadlineExcerpt);
+  const relativeDeadlineSentence = sentenceExcerpt(originalMessage, relativeDeadline);
+  const relativeDeadlineExcerpt = relativeDeadline.exec(originalMessage)?.[0] ?? relativeDeadlineSentence;
+  const hasSpecificDeadlineTime = hasSpecificDeadline(relativeDeadlineSentence);
   if (required.has("deadline") && !hasDeadline) {
     addFinding(findings, {
       kind: "missing",
@@ -265,10 +309,9 @@ export function analyzeMessage(
       field: "deadline",
       title: "Timing may be relative or unclear",
       excerpt: relativeDeadlineExcerpt || text.slice(0, 180),
-      why: "Phrases such as “soon” or “before the meeting” depend on context and do not identify a specific time.",
+      why: "A relative phrase or weekday without a specific date or time can depend on context. Confirm the intended deadline before sending.",
       question: "What exact date and time does this deadline refer to?"
     }, "relative-deadline");
-    if (fields.deadline && !explicitNoDeadline) fields.deadline = "";
   }
 
   if (required.has("recipient") && !fields.recipient && /\b(?:send|share|deliver|submit|forward|email)\b/i.test(text)) {
@@ -334,19 +377,6 @@ export function analyzeMessage(
     }, "multiple-actions-no-sequence");
   }
 
-  const actionWords = text.match(/\b(?:and then|then|also|after that|before that|first|finally|next)\b/gi) || [];
-  if (actionWords.length > 0 && /\b(?:and then|then|after that|before that|first|finally|next)\b/i.test(text)) {
-    addFinding(findings, {
-      kind: "ambiguous",
-      severity: "low",
-      field: "nextAction",
-      title: "Sequence may need to be made explicit",
-      excerpt: sentenceExcerpt(originalMessage, /\b(?:and then|then|after that|before that|first|finally|next)\b/i) || text.slice(0, 180),
-      why: "Multiple steps are mentioned, but their order or completion boundary may be unclear.",
-      question: "What is the first action, and what should happen only after it is complete?"
-    }, "multi-step-sequence");
-  }
-
   const timingMentions = text.match(/\b(?:today|tomorrow|tonight|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|next week|next month|ASAP|soon|EOD|end of day|\d{4}-\d{2}-\d{2})\b/gi) || [];
   const uniqueTimingMentions = [...new Set(timingMentions.map((value) => value.toLowerCase()))];
   const explicitTimingCorrection = /\b(?:not\s+(?:by\s+)?(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|today|tomorrow)|rather than\s+(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)|instead of\s+(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)|(?:deadline|due date|timing)\b[^.!?]{0,45}\b(?:corrected|updated|changed|rescheduled))\b/i.test(text)
@@ -392,16 +422,7 @@ export function analyzeMessage(
     .filter((field) => fields[field].trim().length > 0)
     .map((field) => {
       const value = fields[field];
-      const matchedLine = originalMessage
-        .split(/\r?\n/)
-        .find((line) => line.toLowerCase().includes(value.toLowerCase()));
-      const valueIndex = originalMessage.toLowerCase().indexOf(value.toLowerCase());
-      const evidence = matchedLine
-        ? normalizeWhitespace(matchedLine).slice(0, 180)
-        : valueIndex >= 0
-          ? normalizeWhitespace(originalMessage.slice(Math.max(0, valueIndex - 35), Math.min(originalMessage.length, valueIndex + value.length + 35))).slice(0, 180)
-          : value;
-      return { field, value, evidence };
+      return { field, value, evidence: sourceEvidence(originalMessage, field, value) };
     });
 
   return {
@@ -416,6 +437,13 @@ export function analyzeMessage(
 export function generateHandoff(fields: HandoffFields, findings: Finding[]): string {
   const valueOrPlaceholder = (value: string, placeholder: string) =>
     value.trim() || "[" + placeholder + "]";
+  const deadlineNeedsConfirmation =
+    findings.some((finding) => finding.id === "relative-deadline") &&
+    Boolean(fields.deadline.trim()) &&
+    !hasSpecificDeadline(fields.deadline);
+  const deadlineValue = fields.deadline.trim()
+    ? fields.deadline.trim() + (deadlineNeedsConfirmation ? " (confirm exact date/time)" : "")
+    : "[Confirm exact date and time]";
 
   const lines = [
     "TASK HANDOFF",
@@ -424,7 +452,7 @@ export function generateHandoff(fields: HandoffFields, findings: Finding[]): str
     "Owner: " + valueOrPlaceholder(fields.owner, "Confirm owner"),
     "Recipient: " + valueOrPlaceholder(fields.recipient, "Confirm recipient or destination"),
     "Expected outcome: " + valueOrPlaceholder(fields.deliverable, "Define deliverable and acceptance criteria"),
-    "Deadline: " + valueOrPlaceholder(fields.deadline, "Confirm exact date and time"),
+    "Deadline: " + deadlineValue,
     "Dependencies: " + valueOrPlaceholder(fields.dependency, "Confirm dependencies, or mark none"),
     "Immediate next step: " + valueOrPlaceholder(fields.nextAction, "Confirm the first actionable step"),
     "",
@@ -435,7 +463,8 @@ export function generateHandoff(fields: HandoffFields, findings: Finding[]): str
     .filter((finding) => finding.kind !== "info" && finding.id !== "looks-clear")
     .filter((finding) => {
       const value = fields[finding.field];
-      return !value || !value.trim();
+      if (!value || !value.trim()) return true;
+      return finding.id === "relative-deadline" && !hasSpecificDeadline(value);
     })
     .map((finding) => "- " + finding.question);
 
