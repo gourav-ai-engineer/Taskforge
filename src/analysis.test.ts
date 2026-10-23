@@ -148,9 +148,11 @@ describe("analyzeMessage", () => {
     const result = analyzeMessage("After the API is ready, update the dashboard and then send it to Arjun by Friday.");
     const recipient = result.explicitFacts.find((fact) => fact.field === "recipient");
     const dependency = result.explicitFacts.find((fact) => fact.field === "dependency");
-    expect(recipient?.evidence).toContain("send it to Arjun");
-    expect(recipient?.evidence.length).toBeLessThan(100);
+    expect(recipient?.evidence).toBe("send it to Arjun");
+    expect(recipient?.evidence).not.toContain("Friday");
     expect(dependency?.evidence).toBe("After the API is ready");
+    const deadline = result.explicitFacts.find((fact) => fact.field === "deadline");
+    expect(deadline?.evidence).toBe("by Friday");
   });
 
   it("keeps unknown values empty rather than inventing them", () => {
