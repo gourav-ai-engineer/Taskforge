@@ -176,7 +176,7 @@ function App() {
     const mergedFields = applyManualFieldEdits(result.fields, manualFieldEdits);
     setAnalysis(result);
     setFields(mergedFields);
-    setHandoff(generateHandoff(mergedFields, result.findings, manualFieldEdits));
+    setHandoff(generateHandoff(mergedFields, result.findings, manualFieldEdits, fieldsToReview));
     setDraftNeedsRefresh(false);
     setDraftManuallyEdited(false);
     setConfirmDraftReplacement(false);
@@ -188,6 +188,7 @@ function App() {
   function updateField(field: FieldKey, value: string) {
     setFields((current) => current ? { ...current, [field]: value } : current);
     setManualFieldEdits((current) => ({ ...current, [field]: value }));
+    setFieldsToReview((current) => current.filter((item) => item !== field));
     setDraftNeedsRefresh(true);
     setCopied(false);
   }
@@ -204,7 +205,7 @@ function App() {
 
   function replaceDraftFromFields() {
     if (!fields || !analysis) return;
-    setHandoff(generateHandoff(fields, analysis.findings, manualFieldEdits));
+    setHandoff(generateHandoff(fields, analysis.findings, manualFieldEdits, fieldsToReview));
     setDraftNeedsRefresh(false);
     setDraftManuallyEdited(false);
     setConfirmDraftReplacement(false);
@@ -257,7 +258,7 @@ function App() {
     window.setTimeout(() => editorRef.current?.focus(), 0);
   }
 
-  const unresolvedFindings = analysis ? getUnresolvedFindings(analysis.findings, manualFieldEdits) : [];
+  const unresolvedFindings = analysis ? getUnresolvedFindings(analysis.findings, manualFieldEdits, fieldsToReview) : [];
   const highCount = unresolvedFindings.filter((item) => item.severity === "high").length;
   const ambiguousCount = unresolvedFindings.filter((item) => item.kind === "ambiguous").length;
   const missingCount = unresolvedFindings.filter((item) => item.kind === "missing").length;
@@ -426,7 +427,7 @@ function App() {
                 <div className="findings-column">
                   <div className="subsection-header"><h3>Signals to review</h3><span>{analysis.findings.length} {analysis.findings.length === 1 ? "finding" : "findings"}</span></div>
                   <div className="finding-list">
-                    {analysis.findings.map((finding) => <FindingCard finding={finding} key={finding.id} onFocusField={focusField} addressed={isFindingAddressed(finding, manualFieldEdits)} />)}
+                    {analysis.findings.map((finding) => <FindingCard finding={finding} key={finding.id} onFocusField={focusField} addressed={isFindingAddressed(finding, manualFieldEdits, fieldsToReview)} />)}
                   </div>
                   <div className="extracted-card">
                     <div className="extracted-title"><FileText size={17} aria-hidden="true" /><div><strong>Explicit details found</strong><small>Only facts the rules could identify in the message.</small></div></div>

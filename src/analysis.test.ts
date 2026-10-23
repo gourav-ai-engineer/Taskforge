@@ -229,6 +229,12 @@ describe("finding resolution", () => {
     expect(getUnresolvedFindings([finding], { deadline: "Friday" })).toContainEqual(finding);
     expect(getUnresolvedFindings([finding], { deadline: "Friday at 4 PM IST" })).toEqual([]);
   });
+
+  it("keeps preserved fields unresolved until they are reviewed against the new message", () => {
+    const finding = analyzeMessage("Can someone finish the evaluation?", { requiredFields: ["owner"] }).findings.find((item) => item.id === "missing-owner")!;
+    expect(getUnresolvedFindings([finding], { owner: "Riya" }, ["owner"])).toContainEqual(finding);
+    expect(getUnresolvedFindings([finding], { owner: "Riya" }, [])).toEqual([]);
+  });
 });
 
 describe("generateHandoff", () => {

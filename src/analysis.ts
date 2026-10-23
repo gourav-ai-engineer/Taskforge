@@ -167,8 +167,10 @@ function hasSpecificDeadline(value: string): boolean {
 
 export function isFindingAddressed(
   finding: Finding,
-  manualEdits: Partial<HandoffFields>
+  manualEdits: Partial<HandoffFields>,
+  fieldsToReview: FieldKey[] = []
 ): boolean {
+  if (fieldsToReview.includes(finding.field)) return false;
   const value = manualEdits[finding.field]?.trim() ?? "";
   if (!value) return false;
   if (finding.id === "relative-deadline") return hasSpecificDeadline(value);
@@ -177,12 +179,13 @@ export function isFindingAddressed(
 
 export function getUnresolvedFindings(
   findings: Finding[],
-  manualEdits: Partial<HandoffFields> = {}
+  manualEdits: Partial<HandoffFields> = {},
+  fieldsToReview: FieldKey[] = []
 ): Finding[] {
   return findings.filter((finding) =>
     finding.kind !== "info" &&
     finding.id !== "looks-clear" &&
-    !isFindingAddressed(finding, manualEdits)
+    !isFindingAddressed(finding, manualEdits, fieldsToReview)
   );
 }
 
@@ -470,7 +473,8 @@ export function analyzeMessage(
 export function generateHandoff(
   fields: HandoffFields,
   findings: Finding[],
-  manualEdits: Partial<HandoffFields> = {}
+  manualEdits: Partial<HandoffFields> = {},
+  fieldsToReview: FieldKey[] = []
 ): string {
   const valueOrPlaceholder = (value: string, placeholder: string) =>
     value.trim() || "[" + placeholder + "]";
@@ -496,7 +500,7 @@ export function generateHandoff(
     "OPEN QUESTIONS"
   ];
 
-  const openQuestions = getUnresolvedFindings(findings, manualEdits)
+  const openQuestions = getUnresolvedFindings(findings, manualEdits, fieldsToReview)
     .map((finding) => "- " + finding.question);
 
   const uniqueQuestions = [...new Set(openQuestions)];
