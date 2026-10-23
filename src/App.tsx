@@ -117,8 +117,6 @@ function App() {
       ? "Keep the message under " + MAX_MESSAGE_LENGTH.toLocaleString() + " characters."
       : "";
 
-  const requiredLabels = requiredFields.map((field) => FIELD_LABELS[field].replace(" / expected outcome", ""));
-
   function toggleRequired(field: FieldKey) {
     setRequiredFields((current) =>
       current.includes(field) ? current.filter((item) => item !== field) : [...current, field]
@@ -317,7 +315,7 @@ function App() {
                 </div>}
               </div>
 
-              <button className="primary-button analyze-button" type="button" onClick={runAnalysis} disabled={Boolean(blockingError)}>
+              <button className="primary-button analyze-button" type="button" onClick={runAnalysis}>
                 Check this handoff <ArrowRight size={17} aria-hidden="true" />
               </button>
               <p className="button-disclaimer">Rule-based suggestions, not a judgement of the person who wrote it.</p>
