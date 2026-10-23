@@ -108,6 +108,13 @@ describe("analyzeMessage", () => {
     expect(result.findings.some((finding) => finding.id === "missing-dependency")).toBe(false);
   });
 
+  it("does not flag a pronoun when a specific artifact was named immediately beforehand", () => {
+    const report = analyzeMessage("Please prepare the weekly report by Friday and send it to the team.");
+    const dashboard = analyzeMessage("After the API is ready, update the dashboard and then send it to Arjun by Friday.");
+    expect(report.findings.some((finding) => finding.id === "ambiguous-reference")).toBe(false);
+    expect(dashboard.findings.some((finding) => finding.id === "ambiguous-reference")).toBe(false);
+  });
+
   it("does not treat an unrelated use of 'this' as an ambiguous task reference", () => {
     const result = analyzeMessage("Please complete this task by Friday.");
     expect(result.findings.some((finding) => finding.id === "ambiguous-reference")).toBe(false);
