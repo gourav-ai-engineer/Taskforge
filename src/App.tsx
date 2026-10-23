@@ -18,6 +18,8 @@ import {
 import {
   analyzeMessage,
   applyManualFieldEdits,
+  getUnresolvedFindings,
+  isFindingAddressed,
   DEFAULT_REQUIRED_FIELDS,
   FIELD_LABELS,
   MAX_MESSAGE_LENGTH,
@@ -174,7 +176,7 @@ function App() {
     const mergedFields = applyManualFieldEdits(result.fields, manualFieldEdits);
     setAnalysis(result);
     setFields(mergedFields);
-    setHandoff(generateHandoff(mergedFields, result.findings));
+    setHandoff(generateHandoff(mergedFields, result.findings, manualFieldEdits));
     setDraftNeedsRefresh(false);
     setDraftManuallyEdited(false);
     setConfirmDraftReplacement(false);
@@ -202,7 +204,7 @@ function App() {
 
   function replaceDraftFromFields() {
     if (!fields || !analysis) return;
-    setHandoff(generateHandoff(fields, analysis.findings));
+    setHandoff(generateHandoff(fields, analysis.findings, manualFieldEdits));
     setDraftNeedsRefresh(false);
     setDraftManuallyEdited(false);
     setConfirmDraftReplacement(false);
@@ -255,9 +257,10 @@ function App() {
     window.setTimeout(() => editorRef.current?.focus(), 0);
   }
 
-  const highCount = analysis?.findings.filter((item) => item.severity === "high").length ?? 0;
-  const ambiguousCount = analysis?.findings.filter((item) => item.kind === "ambiguous").length ?? 0;
-  const missingCount = analysis?.findings.filter((item) => item.kind === "missing").length ?? 0;
+  const unresolvedFindings = analysis ? getUnresolvedFindings(analysis.findings, manualFieldEdits) : [];
+  const highCount = unresolvedFindings.filter((item) => item.severity === "high").length;
+  const ambiguousCount = unresolvedFindings.filter((item) => item.kind === "ambiguous").length;
+  const missingCount = unresolvedFindings.filter((item) => item.kind === "missing").length;
 
   return (
     <div className="app-shell">
@@ -413,7 +416,7 @@ function App() {
                 </div>
               )}
               <div className="summary-strip" aria-label="Analysis summary">
-                <div className="summary-cell"><span className="summary-value">{analysis.findings.filter((item) => item.kind !== "info" && item.id !== "looks-clear").length}</span><span className="summary-label">Questions to review</span></div>
+                <div className="summary-cell"><span className="summary-value">{unresolvedFindings.length}</span><span className="summary-label">Questions to review</span></div>
                 <div className="summary-cell"><span className="summary-value">{missingCount}</span><span className="summary-label">Missing details</span></div>
                 <div className="summary-cell"><span className="summary-value">{ambiguousCount}</span><span className="summary-label">Potential ambiguity</span></div>
                 <div className="summary-state"><span className={highCount ? "state-dot warn" : "state-dot clear"} />{highCount ? "Review before sending" : "No high-severity gaps found"}</div>
@@ -423,7 +426,7 @@ function App() {
                 <div className="findings-column">
                   <div className="subsection-header"><h3>Signals to review</h3><span>{analysis.findings.length} {analysis.findings.length === 1 ? "finding" : "findings"}</span></div>
                   <div className="finding-list">
-                    {analysis.findings.map((finding) => <FindingCard finding={finding} key={finding.id} onFocusField={focusField} />)}
+                    {analysis.findings.map((finding) => <FindingCard finding={finding} key={finding.id} onFocusField={focusField} addressed={isFindingAddressed(finding, manualFieldEdits)} />)}
                   </div>
                   <div className="extracted-card">
                     <div className="extracted-title"><FileText size={17} aria-hidden="true" /><div><strong>Explicit details found</strong><small>Only facts the rules could identify in the message.</small></div></div>
@@ -504,11 +507,11 @@ function App() {
   );
 }
 
-function FindingCard({ finding, onFocusField }: { finding: Finding; onFocusField: (field: FieldKey) => void }) {
+function FindingCard({ finding, onFocusField, addressed }: { finding: Finding; onFocusField: (field: FieldKey) => void; addressed: boolean }) {
   const kindLabel = finding.kind === "info" ? "INFO" : finding.kind === "missing" ? "MISSING" : finding.kind === "ambiguous" ? "AMBIGUOUS" : "POSSIBLE CONFLICT";
   return (
-    <article className={"finding-card severity-" + finding.severity}>
-      <div className="finding-topline"><span className={"kind-label kind-" + finding.kind}>{kindLabel}</span><span className="severity-label">{finding.severity === "high" ? "Review first" : finding.severity === "medium" ? "Worth clarifying" : "Context check"}</span></div>
+    <article className={"finding-card severity-" + finding.severity + (addressed ? " finding-addressed" : "")}>
+      <div className="finding-topline"><span className={"kind-label kind-" + finding.kind}>{kindLabel}</span><span className="severity-label">{addressed ? "Addressed in your draft" : finding.severity === "high" ? "Review first" : finding.severity === "medium" ? "Worth clarifying" : "Context check"}</span></div>
       <h4>{finding.title}</h4>
       {finding.excerpt && <blockquote><span aria-hidden="true">“</span>{finding.excerpt}<span aria-hidden="true">”</span></blockquote>}
       <p className="finding-why">{finding.why}</p>

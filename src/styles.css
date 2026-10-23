@@ -194,6 +194,8 @@ textarea, input[type="text"], .field-row input { color: #25323c; }
 .field-row label { display: block; margin-bottom: 7px; color: #4f5b5a; font-size: 10px; font-weight: 700; }
 .field-origin { display: inline-flex; margin-left: 7px; padding: 3px 5px; border-radius: 4px; vertical-align: middle; background: #edf4df; color: #5b7435; font: 500 8px "DM Mono", monospace; letter-spacing: .04em; }
 .field-origin.needs-review { background: #fff1d7; color: #895d22; }
+.finding-addressed { opacity: .84; }
+.finding-addressed .severity-label { color: #527137; font-weight: 700; }
 .retained-fields-banner { display: flex; align-items: start; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin: 0 0 18px; padding: 15px 16px; border: 1px solid #e8d3a8; border-radius: 10px; background: #fffaf0; }
 .retained-fields-banner strong { display: block; color: #76552c; font-size: 12px; }
 .retained-fields-banner p { max-width: 690px; margin: 5px 0 0; color: #846e4e; font-size: 10px; line-height: 1.6; }

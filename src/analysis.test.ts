@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   analyzeMessage,
   applyManualFieldEdits,
+  getUnresolvedFindings,
   generateHandoff,
   MAX_MESSAGE_LENGTH,
   type HandoffFields
@@ -215,6 +216,21 @@ describe("applyManualFieldEdits", () => {
   });
 });
 
+describe("finding resolution", () => {
+  it("marks a missing owner addressed only after the user supplies a value", () => {
+    const finding = analyzeMessage("Can someone finish the evaluation?", { requiredFields: ["owner"] }).findings.find((item) => item.id === "missing-owner")!;
+    expect(getUnresolvedFindings([finding])).toContainEqual(finding);
+    expect(getUnresolvedFindings([finding], { owner: "Riya" })).toEqual([]);
+    expect(getUnresolvedFindings([finding], { owner: "" })).toContainEqual(finding);
+  });
+
+  it("does not mark a relative deadline addressed when the user only types a weekday", () => {
+    const finding = analyzeMessage("Please prepare the report soon.", { requiredFields: ["deadline"] }).findings.find((item) => item.id === "relative-deadline")!;
+    expect(getUnresolvedFindings([finding], { deadline: "Friday" })).toContainEqual(finding);
+    expect(getUnresolvedFindings([finding], { deadline: "Friday at 4 PM IST" })).toEqual([]);
+  });
+});
+
 describe("generateHandoff", () => {
   const blankFields: HandoffFields = {
     taskTitle: "",
@@ -239,6 +255,13 @@ describe("generateHandoff", () => {
     expect(draft).toContain("Task: Review API");
     expect(draft).toContain("Owner: Riya");
     expect(draft).toContain("Deadline: Friday 4 PM");
+  });
+
+  it("does not keep an open question after the user fills its field", () => {
+    const finding = analyzeMessage("Can someone finish the evaluation?", { requiredFields: ["owner"] }).findings.find((item) => item.id === "missing-owner")!;
+    const draft = generateHandoff({ ...blankFields, owner: "Riya" }, [finding], { owner: "Riya" });
+    expect(draft).not.toContain(finding.question);
+    expect(draft).toContain("Owner: Riya");
   });
 
   it("deduplicates open questions", () => {

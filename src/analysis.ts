@@ -165,6 +165,27 @@ function hasSpecificDeadline(value: string): boolean {
   return /\b(?:at\s*)?\d{1,2}(?::\d{2})?\s*(?:am|pm)\b|\b\d{1,2}:\d{2}\b|\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}\s+(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?:\s+\d{4})?\b/i.test(value);
 }
 
+export function isFindingAddressed(
+  finding: Finding,
+  manualEdits: Partial<HandoffFields>
+): boolean {
+  const value = manualEdits[finding.field]?.trim() ?? "";
+  if (!value) return false;
+  if (finding.id === "relative-deadline") return hasSpecificDeadline(value);
+  return true;
+}
+
+export function getUnresolvedFindings(
+  findings: Finding[],
+  manualEdits: Partial<HandoffFields> = {}
+): Finding[] {
+  return findings.filter((finding) =>
+    finding.kind !== "info" &&
+    finding.id !== "looks-clear" &&
+    !isFindingAddressed(finding, manualEdits)
+  );
+}
+
 function findFacts(text: string): HandoffFields {
   const fields = EMPTY_FIELDS();
 
@@ -446,7 +467,11 @@ export function analyzeMessage(
   };
 }
 
-export function generateHandoff(fields: HandoffFields, findings: Finding[]): string {
+export function generateHandoff(
+  fields: HandoffFields,
+  findings: Finding[],
+  manualEdits: Partial<HandoffFields> = {}
+): string {
   const valueOrPlaceholder = (value: string, placeholder: string) =>
     value.trim() || "[" + placeholder + "]";
   const deadlineNeedsConfirmation =
@@ -471,13 +496,7 @@ export function generateHandoff(fields: HandoffFields, findings: Finding[]): str
     "OPEN QUESTIONS"
   ];
 
-  const openQuestions = findings
-    .filter((finding) => finding.kind !== "info" && finding.id !== "looks-clear")
-    .filter((finding) => {
-      const value = fields[finding.field];
-      if (!value || !value.trim()) return true;
-      return finding.id === "relative-deadline" && !hasSpecificDeadline(value);
-    })
+  const openQuestions = getUnresolvedFindings(findings, manualEdits)
     .map((finding) => "- " + finding.question);
 
   const uniqueQuestions = [...new Set(openQuestions)];
