@@ -154,23 +154,28 @@ function sourceEvidence(originalMessage: string, field: FieldKey, value: string)
   }
 
   if (field === "recipient") {
-    const recipientClause = originalMessage.match(
-      /\b(?:send|share|deliver)\b[^.!?\n]{0,60}\bto\s+([A-Z][A-Za-z'-]*(?:\s+[A-Z][A-Za-z'-]*){0,2})/i
-    );
-    if (recipientClause?.[0] && recipientClause[1].toLowerCase() === valueLower) {
-      return normalizeWhitespace(recipientClause[0]).slice(0, 100);
+    const recipientIndex = originalMessage.toLowerCase().indexOf(valueLower);
+    if (recipientIndex >= 0) {
+      const prefix = originalMessage.slice(Math.max(0, recipientIndex - 60), recipientIndex);
+      const actionOffset = Math.max(prefix.toLowerCase().lastIndexOf("send "), prefix.toLowerCase().lastIndexOf("share "), prefix.toLowerCase().lastIndexOf("deliver "));
+      if (actionOffset >= 0) {
+        const start = Math.max(0, recipientIndex - 60) + actionOffset;
+        return normalizeWhitespace(originalMessage.slice(start, recipientIndex + value.length)).replace(/^[,\s]+|[,\s]+$/g, "").slice(0, 100);
+      }
     }
   }
 
   if (field === "deadline") {
-    const deadlineClause = originalMessage.match(
-      /\b(?:by|before|due|deadline(?:\s+is)?)\s+(?:Friday|Monday|Tuesday|Wednesday|Thursday|Saturday|Sunday|tomorrow|tonight|today|next week|end of day|EOD|\d{4}-\d{2}-\d{2})(?:\s+at\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)(?:\s+[A-Z]{2,5})?)?/i
-    );
-    if (deadlineClause?.[0] && deadlineClause[0].toLowerCase().includes(valueLower)) {
-      return normalizeWhitespace(deadlineClause[0]).slice(0, 100);
+    const deadlineIndex = originalMessage.toLowerCase().indexOf(valueLower);
+    if (deadlineIndex >= 0) {
+      const prefix = originalMessage.slice(Math.max(0, deadlineIndex - 20), deadlineIndex);
+      const marker = Math.max(prefix.toLowerCase().lastIndexOf("by "), prefix.toLowerCase().lastIndexOf("before "), prefix.toLowerCase().lastIndexOf("due "));
+      if (marker >= 0) {
+        const start = Math.max(0, deadlineIndex - 20) + marker;
+        return normalizeWhitespace(originalMessage.slice(start, deadlineIndex + value.length)).slice(0, 100);
+      }
     }
   }
-
   const valueIndex = originalMessage.toLowerCase().indexOf(valueLower);
   if (valueIndex < 0) return value;
   const start = Math.max(0, valueIndex - 38);
