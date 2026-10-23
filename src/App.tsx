@@ -360,7 +360,7 @@ function App() {
                   </div>
                   <div className="extracted-card">
                     <div className="extracted-title"><FileText size={17} aria-hidden="true" /><div><strong>Explicit details found</strong><small>Only facts the rules could identify in the message.</small></div></div>
-                    {analysis.explicitFacts.length ? <ul>{analysis.explicitFacts.map((fact) => <li key={fact}>{fact}</li>)}</ul> : <p>No structured facts were confidently identified. Fill in the fields on the right only with information you can confirm.</p>}
+                    {analysis.explicitFacts.length ? <ul>{analysis.explicitFacts.map((fact) => <li key={fact.field}><strong>{FIELD_LABELS[fact.field]}:</strong> {fact.value}<small className="fact-evidence">Evidence: “{fact.evidence}”</small></li>)}</ul> : <p>No structured facts were confidently identified. Fill in the fields on the right only with information you can confirm.</p>}
                   </div>
                 </div>
 
