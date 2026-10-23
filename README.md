@@ -10,11 +10,11 @@ Messages like “Can someone finish the evaluation and send it over before the m
 
 ## Features
 - Analyze pasted task messages with deterministic, explainable rules.
-- Inspect explicit facts and edit structured handoff fields.
+- Inspect extracted facts with supporting evidence, jump from findings to the related field, and edit structured handoff fields.
 - Flag missing ownership, unclear deliverables, vague requests, relative deadlines, ambiguous references, dependencies, multiple actions, and potentially conflicting timing.
 - Choose which fields are required for a particular handoff.
 - Use five editable demo scenarios, including a well-specified message.
-- Generate, edit, copy, and download a handoff draft.
+- Generate, edit, copy, and download a handoff draft; confirm before regenerating if you manually edited the draft text.
 - Keyboard-friendly controls, visible focus, live status announcements, responsive layout, and reduced-motion support.
 - No sign-in, no backend, no API key, no external AI calls, and no remotely loaded fonts in the current version.
 
