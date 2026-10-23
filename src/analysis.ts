@@ -232,6 +232,14 @@ function findFacts(text: string): HandoffFields {
     /\b(?:send|share|deliver|email|forward|submit)\b[^.!?\n]{0,80}\bto\s+((?:the\s+)?(?:[A-Za-z'-]+\s+team|team)|[A-Z][A-Za-z'-]*(?:\s+[A-Z][A-Za-z'-]*){0,2})\b/i
   ]);
 
+  if (fields.recipient) {
+    // A named recipient may be followed by timing or sequencing text. Keep only
+    // the destination so "Arjun by Friday" does not become the recipient name.
+    fields.recipient = fields.recipient
+      .replace(/\s+(?:by|before|after|when|once|and then|and)\b[\s\S]*$/i, "")
+      .trim();
+  }
+
   fields.deliverable = capture(text, [
     /\b(?:deliverable|expected output|output|format)\s*:\s*([^\n.!?]+)/i,
     /\b(?:prepare|create|produce|submit|deliver|write)\s+(?:a|an|the)?\s*((?:evaluation|status|research|design|test|weekly|final|project)?\s*(?:report|document|presentation|slides|spreadsheet|csv|notebook|prototype|demo|pull request|pr|summary|analysis))\b/i,
