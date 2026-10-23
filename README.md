@@ -35,7 +35,7 @@ The analyzer uses heuristics, not a language model. Findings are suggestions for
 - GitHub Actions for CI
 
 ## Run locally
-Prerequisites: Node.js 20 or newer and npm.
+Prerequisites: Node.js 20.19+ (or 22.12+) and a current npm release.
 
     npm install
     npm run dev
