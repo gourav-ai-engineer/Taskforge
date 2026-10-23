@@ -27,11 +27,17 @@ export interface AnalysisOptions {
   requiredFields: FieldKey[];
 }
 
+export interface ExplicitFact {
+  field: FieldKey;
+  value: string;
+  evidence: string;
+}
+
 export interface AnalysisResult {
   originalMessage: string;
   fields: HandoffFields;
   findings: Finding[];
-  explicitFacts: string[];
+  explicitFacts: ExplicitFact[];
   characterCount: number;
 }
 
@@ -277,6 +283,20 @@ export function analyzeMessage(
     }, "missing-dependency");
   }
 
+  const pairedActions = /\b(?:finish|complete|prepare|create|update|review|fix|test|build|send|share|submit|publish|run|analyze|analyse|write|deliver)\b[^.!?]{0,100}\band\b[^.!?]{0,70}\b(?:finish|complete|prepare|create|update|review|fix|test|build|send|share|submit|publish|run|analyze|analyse|write|deliver)\b/i;
+  const hasSequenceCue = /\b(?:and then|then|after that|before that|first|finally|next)\b/i.test(text);
+  if (pairedActions.test(text) && !hasSequenceCue) {
+    addFinding(findings, {
+      kind: "ambiguous",
+      severity: "medium",
+      field: "nextAction",
+      title: "Several actions may need an explicit order",
+      excerpt: sentenceExcerpt(originalMessage, pairedActions) || text.slice(0, 180),
+      why: "The message combines multiple action verbs without saying whether one must finish before the next begins.",
+      question: "Should these actions happen in a particular order, and what marks completion of each one?"
+    }, "multiple-actions-no-sequence");
+  }
+
   const actionWords = text.match(/\b(?:and then|then|also|after that|before that|first|finally|next)\b/gi) || [];
   if (actionWords.length > 0 && /\b(?:and then|then|after that|before that|first|finally|next)\b/i.test(text)) {
     addFinding(findings, {
@@ -329,15 +349,21 @@ export function analyzeMessage(
     }, "looks-clear");
   }
 
-  const explicitFacts = [
-    fields.taskTitle ? "Task title: " + fields.taskTitle : "",
-    fields.owner ? "Owner: " + fields.owner : "",
-    fields.recipient ? "Recipient: " + fields.recipient : "",
-    fields.deliverable ? "Deliverable: " + fields.deliverable : "",
-    fields.deadline ? "Deadline: " + fields.deadline : "",
-    fields.dependency ? "Dependency: " + fields.dependency : "",
-    fields.nextAction ? "Next action: " + fields.nextAction : ""
-  ].filter(Boolean);
+  const explicitFacts = (Object.keys(fields) as FieldKey[])
+    .filter((field) => fields[field].trim().length > 0)
+    .map((field) => {
+      const value = fields[field];
+      const matchedLine = originalMessage
+        .split(/\r?\n/)
+        .find((line) => line.toLowerCase().includes(value.toLowerCase()));
+      const valueIndex = originalMessage.toLowerCase().indexOf(value.toLowerCase());
+      const evidence = matchedLine
+        ? normalizeWhitespace(matchedLine).slice(0, 180)
+        : valueIndex >= 0
+          ? normalizeWhitespace(originalMessage.slice(Math.max(0, valueIndex - 35), Math.min(originalMessage.length, valueIndex + value.length + 35))).slice(0, 180)
+          : value;
+      return { field, value, evidence };
+    });
 
   return {
     originalMessage,
