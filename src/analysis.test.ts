@@ -1,0 +1,137 @@
+import { describe, expect, it } from "vitest";
+import {
+  analyzeMessage,
+  DEFAULT_REQUIRED_FIELDS,
+  generateHandoff,
+  MAX_MESSAGE_LENGTH,
+  type HandoffFields
+} from "./analysis";
+
+describe("analyzeMessage", () => {
+  it("returns a useful finding for empty input", () => {
+    const result = analyzeMessage("   ");
+    expect(result.findings[0]?.id).toBe("empty-message");
+    expect(result.originalMessage).toBe("");
+  });
+
+  it("does not warn that owner, deliverable, and timing are missing in a structured handoff", () => {
+    const message = "Task: Publish the weekly test summary\nOwner: Riya Sharma\nRecipient: QA team\nDeliverable: A Markdown report\nDeadline: Friday at 4:00 PM IST\nDependency: None\nNext action: Run the regression suite.";
+    const result = analyzeMessage(message, { requiredFields: ["owner", "deliverable", "deadline", "recipient"] });
+    expect(result.fields.owner).toBe("Riya Sharma");
+    expect(result.fields.deliverable).toContain("Markdown report");
+    expect(result.fields.deadline).toContain("Friday");
+    expect(result.findings.map((finding) => finding.id)).not.toContain("missing-owner");
+    expect(result.findings.map((finding) => finding.id)).not.toContain("missing-deliverable");
+    expect(result.findings.map((finding) => finding.id)).not.toContain("missing-deadline");
+  });
+
+  it("flags an unspecified owner", () => {
+    const result = analyzeMessage("Can someone finish the evaluation?", { requiredFields: ["owner"] });
+    expect(result.findings.some((finding) => finding.id === "missing-owner")).toBe(true);
+  });
+
+  it("flags an unspecified deliverable", () => {
+    const result = analyzeMessage("Riya will complete the task by Friday.", { requiredFields: ["deliverable"] });
+    expect(result.findings.some((finding) => finding.id === "missing-deliverable")).toBe(true);
+  });
+
+  it("flags missing deadline when deadline is required", () => {
+    const result = analyzeMessage("Owner: Riya\nDeliverable: Markdown report", { requiredFields: ["deadline"] });
+    expect(result.findings.some((finding) => finding.id === "missing-deadline")).toBe(true);
+  });
+
+  it("flags relative deadlines rather than silently treating them as exact", () => {
+    const result = analyzeMessage("Please prepare the report soon.", { requiredFields: ["deadline"] });
+    expect(result.findings.some((finding) => finding.id === "relative-deadline")).toBe(true);
+    expect(result.fields.deadline).toBe("");
+  });
+
+  it("flags vague language and ambiguous references", () => {
+    const result = analyzeMessage("Can someone finish it and send it over?");
+    const ids = result.findings.map((finding) => finding.id);
+    expect(ids).toContain("vague-action");
+    expect(ids).toContain("ambiguous-reference");
+  });
+
+  it("flags a missing recipient when sending is mentioned and recipient is required", () => {
+    const result = analyzeMessage("Please send the report by Friday.", { requiredFields: ["recipient"] });
+    expect(result.findings.some((finding) => finding.id === "missing-recipient")).toBe(true);
+  });
+
+  it("does not require dependencies unless configured or suggested by the message", () => {
+    const result = analyzeMessage("Owner: Riya\nDeliverable: report\nDeadline: Friday", { requiredFields: ["owner"] });
+    expect(result.findings.some((finding) => finding.id === "missing-dependency")).toBe(false);
+  });
+
+  it("flags timing references that may conflict", () => {
+    const result = analyzeMessage("Please send the report by Friday, but it is due Monday.");
+    expect(result.findings.some((finding) => finding.id === "multiple-timing-references")).toBe(true);
+  });
+
+  it("flags sequences that may need clarification", () => {
+    const result = analyzeMessage("After the API is ready, update the dashboard and then send it to Arjun by Friday.");
+    expect(result.findings.some((finding) => finding.id === "multi-step-sequence")).toBe(true);
+  });
+
+  it("keeps unknown values empty rather than inventing them", () => {
+    const result = analyzeMessage("Please complete the task.");
+    expect(result.fields.owner).toBe("");
+    expect(result.fields.deadline).toBe("");
+  });
+
+  it("records the original character count and trims the stored message", () => {
+    const result = analyzeMessage("  Please review the report.  ");
+    expect(result.originalMessage).toBe("Please review the report.");
+    expect(result.characterCount).toBe(28);
+  });
+
+  it("exposes the maximum input size used by the UI", () => {
+    expect(MAX_MESSAGE_LENGTH).toBe(3000);
+  });
+
+  it("returns an informational result when common checks find no issue", () => {
+    const result = analyzeMessage("Owner: Riya\nDeliverable: report\nDeadline: 12 December 2026");
+    expect(result.findings.length).toBeGreaterThan(0);
+    expect(result.findings.some((finding) => finding.id === "looks-clear" || finding.severity === "low")).toBe(true);
+  });
+});
+
+describe("generateHandoff", () => {
+  const blankFields: HandoffFields = {
+    taskTitle: "",
+    owner: "",
+    recipient: "",
+    deliverable: "",
+    deadline: "",
+    dependency: "",
+    nextAction: ""
+  };
+
+  it("leaves unconfirmed information as visible placeholders", () => {
+    const draft = generateHandoff(blankFields, analyzeMessage("Please complete the evaluation.").findings);
+    expect(draft).toContain("Owner: [Confirm owner]");
+    expect(draft).toContain("Deadline: [Confirm exact date and time]");
+    expect(draft).toContain("[Define deliverable and acceptance criteria]");
+  });
+
+  it("includes user-confirmed values in the generated handoff", () => {
+    const fields = { ...blankFields, taskTitle: "Review API", owner: "Riya", deadline: "Friday 4 PM" };
+    const draft = generateHandoff(fields, []);
+    expect(draft).toContain("Task: Review API");
+    expect(draft).toContain("Owner: Riya");
+    expect(draft).toContain("Deadline: Friday 4 PM");
+  });
+
+  it("deduplicates open questions", () => {
+    const findings = analyzeMessage("Please complete the task.").findings;
+    const draft = generateHandoff(blankFields, findings);
+    expect(draft).toContain("OPEN QUESTIONS");
+    expect(draft).toContain("Fill or confirm bracketed details");
+  });
+
+  it("accepts a customized set of required fields", () => {
+    const result = analyzeMessage("Please complete the task.", { requiredFields: [] });
+    expect(result.findings.some((finding) => finding.id === "missing-owner")).toBe(false);
+    expect(result.findings.some((finding) => finding.id === "missing-deadline")).toBe(false);
+  });
+});
