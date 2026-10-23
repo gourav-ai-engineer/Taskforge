@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   analyzeMessage,
-  DEFAULT_REQUIRED_FIELDS,
   generateHandoff,
   MAX_MESSAGE_LENGTH,
   type HandoffFields
@@ -82,7 +81,7 @@ describe("analyzeMessage", () => {
   it("records the original character count and trims the stored message", () => {
     const result = analyzeMessage("  Please review the report.  ");
     expect(result.originalMessage).toBe("Please review the report.");
-    expect(result.characterCount).toBe(28);
+    expect(result.characterCount).toBe(29);
   });
 
   it("exposes the maximum input size used by the UI", () => {
