@@ -57,7 +57,7 @@ Vite prints the local development URL, usually http://localhost:5173.
     npm run build
     npm run preview
 
-The production bundle is written to dist/. The built frontend can be hosted on static hosting such as GitHub Pages, Netlify, Vercel, or Cloudflare Pages. Configure the host to use npm run build and dist as the output directory. A public deployment has not been configured by this repository commit.
+The production bundle is written to dist/. A Vercel deployment was created for the latest verified implementation commit, and Vercel reports its state as READY. However, public access could not be independently confirmed because the connected Vercel integration is denied access to the project scope. Do not submit the returned deployment URL as a working demo until it opens in a fresh/incognito browser and the core workflow is tested. For another static host, configure npm run build and dist as the output directory.
 
 ## Privacy and security
 The current application analyzes text in the browser. It does not send the message to a server, call an external AI provider, load remote fonts, require an account, or save message content to persistent storage. Clipboard copying and file downloads only happen when the user requests them. Browser extensions and the hosting provider remain outside the application's control.

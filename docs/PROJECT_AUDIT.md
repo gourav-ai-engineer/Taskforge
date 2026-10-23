@@ -76,7 +76,7 @@ A Vercel deployment request was created for the latest verified implementation c
 - Deployment URL returned by Vercel: https://handofflint-fk4pe8cls-goruyashkumar-5133s-projects.vercel.app
 - Project alias returned by Vercel: https://handofflint-goruyashkumar-5133s-projects.vercel.app
 
-However, Vercel API requests to inspect the deployment were denied with a 403 permission error for the project/team scope. The URL could not be independently opened in the verification environment. Therefore **the deployment was requested, but its build/ready state and public accessibility are not verified**. Do not put the URL into the official submission as a working demo until it opens in a fresh/incognito browser and the core flow has been tested. Authorize the Vercel project/team for the connected integration or review the project’s protection/access settings, then verify the live deployment.
+The Vercel deployment listing reports this deployment as **READY**. However, requests to inspect build events and to fetch the page were denied with a 403 permission error for the project/team scope, and a public browser access check could not be completed. Thus the **Vercel-reported deployment state is READY, but public accessibility and live behavior remain NOT VERIFIED**. Do not put the URL into the official submission as a confirmed working demo until it opens in a fresh/incognito browser and the core flow is tested. Authorize the Vercel project/team for the connected integration or review the project's protection/access settings, then verify the live deployment.
 
 ## Remaining P0/P1 tasks before submission
 

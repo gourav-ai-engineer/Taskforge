@@ -94,7 +94,7 @@ Recommended 60–90 second walkthrough:
 
 **URL:** [ADD A VERIFIED PUBLIC URL ONLY AFTER IT OPENS IN A FRESH/INCOGNITO BROWSER]
 
-A Vercel deployment was requested, but its readiness/public accessibility was not verified during this audit because the connected deployment inspector returned a permission error. Do not treat the returned Vercel URL as a confirmed public demo until tested.
+A Vercel deployment was created for the latest verified implementation commit, and Vercel's deployment list reports state READY. Public accessibility and live behavior could not be verified because the connected integration receives a permission error when inspecting/fetching the deployment. Do not treat the returned URL as a confirmed public demo until it opens in a fresh/incognito browser and the core interactions work.
 
 ## Team members
 
