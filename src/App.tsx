@@ -118,9 +118,14 @@ function App() {
       : "";
 
   function toggleRequired(field: FieldKey) {
+    const hasExistingAnalysis = Boolean(analysis);
     setRequiredFields((current) =>
       current.includes(field) ? current.filter((item) => item !== field) : [...current, field]
     );
+    if (hasExistingAnalysis) {
+      clearResults();
+      setNotice("Required checks changed. Run the analysis again to update the findings.");
+    }
   }
 
   function chooseExample(example: Example) {
@@ -319,6 +324,12 @@ function App() {
                 Check this handoff <ArrowRight size={17} aria-hidden="true" />
               </button>
               <p className="button-disclaimer">Rule-based suggestions, not a judgement of the person who wrote it.</p>
+              {!analysis && notice && (
+                <div className={"inline-notice" + (notice.startsWith("Copy was blocked") ? " notice-error" : "")}
+                  role={notice.startsWith("Copy was blocked") ? "alert" : "status"} aria-live="polite">
+                  <CheckCircle2 size={15} aria-hidden="true" /><span>{notice}</span>
+                </div>
+              )}
             </section>
 
             <aside className="sidebar">
@@ -346,7 +357,7 @@ function App() {
               </div>
 
               <div className="summary-strip" aria-label="Analysis summary">
-                <div className="summary-cell"><span className="summary-value">{analysis.findings.filter((item) => item.id !== "looks-clear").length}</span><span className="summary-label">Questions to review</span></div>
+                <div className="summary-cell"><span className="summary-value">{analysis.findings.filter((item) => item.kind !== "info" && item.id !== "looks-clear").length}</span><span className="summary-label">Questions to review</span></div>
                 <div className="summary-cell"><span className="summary-value">{missingCount}</span><span className="summary-label">Missing details</span></div>
                 <div className="summary-cell"><span className="summary-value">{ambiguousCount}</span><span className="summary-label">Potential ambiguity</span></div>
                 <div className="summary-state"><span className={highCount ? "state-dot warn" : "state-dot clear"} />{highCount ? "Review before sending" : "No high-severity gaps found"}</div>
@@ -389,7 +400,13 @@ function App() {
                     <button type="button" className="primary-button copy-button" onClick={copyHandoff}><Clipboard size={15} aria-hidden="true" /> {copied ? "Copied" : "Copy handoff"}</button>
                   </div>
                 </div>
-                {draftNeedsRefresh && <div className="draft-warning" role="status">You changed a field. Update the draft to include your latest details.</div>}
+                {analysis && notice && (
+                  <div className={"inline-notice" + (notice.startsWith("Copy was blocked") ? " notice-error" : "")}
+                    role={notice.startsWith("Copy was blocked") ? "alert" : "status"} aria-live="polite">
+                    <CheckCircle2 size={15} aria-hidden="true" /><span>{notice}</span>
+                  </div>
+                )}
+                {draftNeedsRefresh && <div className="draft-warning" role="status">You changed a field. Update the draft to include your latest details. If you also edited the draft text, regenerating will replace those manual edits.</div>}
                 <label className="sr-only" htmlFor="handoff-output">Editable handoff draft</label>
                 <textarea id="handoff-output" className="handoff-editor" value={handoff} onChange={(event) => { setHandoff(event.target.value); setDraftNeedsRefresh(false); setCopied(false); }} rows={13} />
                 <div className="handoff-foot"><span><ShieldCheck size={14} aria-hidden="true" /> Unconfirmed details stay visible.</span><span>You remain the final editor.</span></div>
@@ -410,13 +427,12 @@ function App() {
         <span>Made for clearer work, by design.</span>
         <a href="https://github.com/gourav-ai-engineer/Taskforge" target="_blank" rel="noreferrer">Source code <ArrowRight size={13} aria-hidden="true" /></a>
       </footer>
-      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">{notice}</div>
     </div>
   );
 }
 
 function FindingCard({ finding }: { finding: Finding }) {
-  const kindLabel = finding.kind === "missing" ? "MISSING" : finding.kind === "ambiguous" ? "AMBIGUOUS" : "POSSIBLE CONFLICT";
+  const kindLabel = finding.kind === "info" ? "INFO" : finding.kind === "missing" ? "MISSING" : finding.kind === "ambiguous" ? "AMBIGUOUS" : "POSSIBLE CONFLICT";
   return (
     <article className={"finding-card severity-" + finding.severity}>
       <div className="finding-topline"><span className={"kind-label kind-" + finding.kind}>{kindLabel}</span><span className="severity-label">{finding.severity === "high" ? "Review first" : finding.severity === "medium" ? "Worth clarifying" : "Context check"}</span></div>

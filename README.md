@@ -16,7 +16,7 @@ Messages like “Can someone finish the evaluation and send it over before the m
 - Use five editable demo scenarios, including a well-specified message.
 - Generate, edit, copy, and download a handoff draft.
 - Keyboard-friendly controls, visible focus, live status announcements, responsive layout, and reduced-motion support.
-- No sign-in, no backend, no API key, and no third-party AI calls in the current version.
+- No sign-in, no backend, no API key, no external AI calls, and no remotely loaded fonts in the current version.
 
 ## How it works
 1. Paste a message or load an example.
@@ -58,7 +58,7 @@ Vite prints the local development URL, usually http://localhost:5173.
 The production bundle is written to dist/. The built frontend can be hosted on static hosting such as GitHub Pages, Netlify, Vercel, or Cloudflare Pages. Configure the host to use npm run build and dist as the output directory. A public deployment has not been configured by this repository commit.
 
 ## Privacy and security
-The current application analyzes text in the browser. It does not send the message to a server, call an external AI provider, require an account, or save message content to persistent storage. Clipboard copying and file downloads only happen when the user requests them. Browser extensions and the hosting provider remain outside the application's control.
+The current application analyzes text in the browser. It does not send the message to a server, call an external AI provider, load remote fonts, require an account, or save message content to persistent storage. Clipboard copying and file downloads only happen when the user requests them. Browser extensions and the hosting provider remain outside the application's control.
 
 Do not paste secrets or sensitive personal information into public demo sessions. If a future version adds a third-party model, it must disclose what is sent, keep credentials server-side, validate returned data, and retain deterministic fallback behavior.
 

@@ -7,7 +7,7 @@ export type FieldKey =
   | "dependency"
   | "nextAction";
 
-export type FindingKind = "missing" | "ambiguous" | "conflicting";
+export type FindingKind = "missing" | "ambiguous" | "conflicting" | "info";
 export type Severity = "high" | "medium" | "low";
 
 export interface Finding {
@@ -75,7 +75,12 @@ const normalizeWhitespace = (value: string) =>
 function capture(text: string, patterns: RegExp[]): string {
   for (const pattern of patterns) {
     const match = text.match(pattern);
-    if (match?.[1]) return normalizeWhitespace(match[1].replace(/[.!?]+$/, ""));
+    if (match?.[1]) {
+      const cleaned = match[1]
+        .replace(/,\s*(?:not|rather than|instead of)\b[\s\S]*$/i, "")
+        .replace(/[.!?]+$/, "");
+      return normalizeWhitespace(cleaned);
+    }
   }
   return "";
 }
@@ -134,9 +139,13 @@ function findFacts(text: string): HandoffFields {
   ]);
 
   fields.dependency = capture(text, [
-    /\b(?:depends on|blocked by|after|once|when)\s+([^\n.!?]+)/i,
-    /\b(?:prerequisite|dependency)\s*:\s*([^\n.!?]+)/i
+    /\b(?:prerequisite|dependency)\s*:\s*([^\n.!?]+)/i,
+    /\b(?:depends on|blocked by|waiting for)\s+([^,.!?]+)/i,
+    /\b(?:after|once|when)\s+([^,.!?]+?)(?=[,;]|$)/i
   ]);
+
+  const explicitNoDependency = /\b(?:no dependencies|no dependency|no prerequisites|no prerequisite|does not depend on anything)\b/i.exec(text);
+  if (explicitNoDependency) fields.dependency = normalizeWhitespace(explicitNoDependency[0]);
 
   fields.nextAction = capture(text, [
     /\bnext action\s*:\s*([^\n.!?]+)/i,
@@ -153,7 +162,6 @@ export function analyzeMessage(
 ): AnalysisResult {
   const originalMessage = input.trim();
   const text = normalizeWhitespace(originalMessage);
-  const fields = findFacts(originalMessage);
   const findings: Finding[] = [];
   const required = new Set(options.requiredFields);
 
@@ -170,13 +178,14 @@ export function analyzeMessage(
     };
     return {
       originalMessage,
-      fields,
+      fields: EMPTY_FIELDS(),
       findings: [tooLong],
       explicitFacts: [],
       characterCount: input.length
     };
   }
 
+  const fields = findFacts(originalMessage);
   if (!text) {
     addFinding(findings, {
       kind: "missing",
@@ -228,7 +237,10 @@ export function analyzeMessage(
     }, "missing-deliverable");
   }
 
-  const deadlineSignal = /\b(?:asap|soon|shortly|later|before the meeting|by the meeting|end of day|eod|tomorrow|tonight|today|next week|next month|by friday|by monday|by tuesday|by wednesday|by thursday|by saturday|by sunday)\b/i;
+  const explicitNoDeadline = /\b(?:no deadline(?: is)? (?:needed|required|necessary)|deadline (?:is )?(?:not needed|required|necessary)|without a deadline|no specific deadline)\b/i.exec(text);
+  if (explicitNoDeadline) fields.deadline = normalizeWhitespace(explicitNoDeadline[0]);
+
+  const deadlineSignal = /\b(?:asap|soon|shortly|later|before the meeting|by the meeting|end of day|eod|tomorrow|tonight|today|next week|next month|by friday|by monday|by tuesday|by wednesday|by thursday|by saturday|by sunday|\d{4}-\d{2}-\d{2})\b/i;
   const hasDeadline = Boolean(fields.deadline) || deadlineSignal.test(text);
   const relativeDeadline = /\b(?:asap|soon|shortly|later|before the meeting|by the meeting|end of day|eod|tomorrow|tonight|today|next week|next month|by friday|by monday|by tuesday|by wednesday|by thursday|by saturday|by sunday)\b/i;
   if (required.has("deadline") && !hasDeadline) {
@@ -251,7 +263,7 @@ export function analyzeMessage(
       why: "Phrases such as “soon” or “before the meeting” depend on context and do not identify a specific time.",
       question: "What exact date and time does this deadline refer to?"
     }, "relative-deadline");
-    if (fields.deadline) fields.deadline = "";
+    if (fields.deadline && !explicitNoDeadline) fields.deadline = "";
   }
 
   if (required.has("recipient") && !fields.recipient && /\b(?:send|share|deliver|submit|forward|email)\b/i.test(text)) {
@@ -266,9 +278,9 @@ export function analyzeMessage(
     }, "missing-recipient");
   }
 
-  const pronounPattern = /\b(?:it|this|that|these|those|them|there)\b/i;
-  if (pronounPattern.test(text) && /\b(?:send|share|finish|complete|review|fix|update|change|submit|do)\b/i.test(text)) {
-    const pronounExcerpt = sentenceExcerpt(originalMessage, pronounPattern);
+  const actionableReference = /\b(?:finish|complete|review|fix|update|change|submit|do|send|share|deliver|publish|replace|move|delete|attach)\s+(?:it|them)\b|\b(?:finish|complete|review|fix|update|change|submit|do|send|share|deliver|publish|replace|move|delete|attach)\s+(?:this|that|these|those)\b(?=\s*(?:[,.!?;:]|$)|\s+(?:over|to|by|before|after|when|once|today|tomorrow|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|now|again|in|out|there|later|first|next|too)\b)/i;
+  if (actionableReference.test(text)) {
+    const pronounExcerpt = sentenceExcerpt(originalMessage, actionableReference);
     addFinding(findings, {
       kind: "ambiguous",
       severity: "low",
@@ -330,9 +342,11 @@ export function analyzeMessage(
     }, "multi-step-sequence");
   }
 
-  const timingMentions = text.match(/\b(?:today|tomorrow|tonight|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|next week|next month|ASAP|soon|EOD|end of day)\b/gi) || [];
+  const timingMentions = text.match(/\b(?:today|tomorrow|tonight|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|next week|next month|ASAP|soon|EOD|end of day|\d{4}-\d{2}-\d{2})\b/gi) || [];
   const uniqueTimingMentions = [...new Set(timingMentions.map((value) => value.toLowerCase()))];
-  if (uniqueTimingMentions.length >= 2 && /\b(?:by|before|after|due|deadline)\b/i.test(text)) {
+  const explicitTimingCorrection = /\b(?:not\s+(?:by\s+)?(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|today|tomorrow)|rather than\s+(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)|instead of\s+(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)|(?:deadline|due date|timing)\b[^.!?]{0,45}\b(?:corrected|updated|changed|rescheduled))\b/i.test(text)
+    || /\b(?:corrected|updated|changed|rescheduled)\b[^.!?]{0,55}\bfrom\b[^.!?]{0,35}\bto\b/i.test(text);
+  if (uniqueTimingMentions.length >= 2 && /\b(?:by|before|after|due|deadline)\b/i.test(text) && !explicitTimingCorrection) {
     addFinding(findings, {
       kind: "conflicting",
       severity: "high",
@@ -359,7 +373,7 @@ export function analyzeMessage(
 
   if (!findings.length) {
     addFinding(findings, {
-      kind: "missing",
+      kind: "info",
       severity: "low",
       field: "nextAction",
       title: "No obvious ambiguity detected",
@@ -413,7 +427,7 @@ export function generateHandoff(fields: HandoffFields, findings: Finding[]): str
   ];
 
   const openQuestions = findings
-    .filter((finding) => finding.id !== "looks-clear")
+    .filter((finding) => finding.kind !== "info" && finding.id !== "looks-clear")
     .filter((finding) => {
       const value = fields[finding.field];
       return !value || !value.trim();

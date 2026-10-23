@@ -67,6 +67,36 @@ describe("analyzeMessage", () => {
     expect(result.findings.some((finding) => finding.id === "multiple-timing-references")).toBe(true);
   });
 
+  it("does not treat a direct correction like Friday, not Monday as unresolved conflict", () => {
+    const result = analyzeMessage("The deadline is Friday, not Monday.", { requiredFields: ["deadline"] });
+    expect(result.findings.some((finding) => finding.id === "multiple-timing-references")).toBe(false);
+    expect(result.fields.deadline).toBe("Friday");
+  });
+
+  it("respects an explicitly stated no-deadline requirement", () => {
+    const result = analyzeMessage("No deadline is needed for this task.", { requiredFields: ["deadline"] });
+    expect(result.findings.some((finding) => finding.id === "missing-deadline")).toBe(false);
+    expect(result.fields.deadline).toMatch(/no deadline is needed/i);
+  });
+
+  it("captures only the prerequisite clause rather than the entire dependent instruction", () => {
+    const result = analyzeMessage("After the API is ready, update the dashboard and then send it to Arjun by Friday.", {
+      requiredFields: ["dependency"]
+    });
+    expect(result.fields.dependency).toBe("the API is ready");
+  });
+
+  it("recognizes an explicit absence of dependencies", () => {
+    const result = analyzeMessage("Owner: Riya\\nNo dependencies.\\nDeliverable: report", { requiredFields: ["dependency"] });
+    expect(result.fields.dependency).toMatch(/no dependencies/i);
+    expect(result.findings.some((finding) => finding.id === "missing-dependency")).toBe(false);
+  });
+
+  it("does not treat an unrelated use of 'this' as an ambiguous task reference", () => {
+    const result = analyzeMessage("Please complete this task by Friday.");
+    expect(result.findings.some((finding) => finding.id === "ambiguous-reference")).toBe(false);
+  });
+
   it("flags sequences that may need clarification", () => {
     const result = analyzeMessage("After the API is ready, update the dashboard and then send it to Arjun by Friday.");
     expect(result.findings.some((finding) => finding.id === "multi-step-sequence")).toBe(true);
