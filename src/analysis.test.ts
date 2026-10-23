@@ -87,7 +87,7 @@ describe("analyzeMessage", () => {
   });
 
   it("recognizes an explicit absence of dependencies", () => {
-    const result = analyzeMessage("Owner: Riya\\nNo dependencies.\\nDeliverable: report", { requiredFields: ["dependency"] });
+    const result = analyzeMessage("Owner: Riya\nNo dependencies.\nDeliverable: report", { requiredFields: ["dependency"] });
     expect(result.fields.dependency).toMatch(/no dependencies/i);
     expect(result.findings.some((finding) => finding.id === "missing-dependency")).toBe(false);
   });
