@@ -39,6 +39,44 @@ describe("analyzeMessage", () => {
   it("flags missing deadline when deadline is required", () => {
     const result = analyzeMessage("Owner: Riya\nDeliverable: Markdown report", { requiredFields: ["deadline"] });
     expect(result.findings.some((finding) => finding.id === "missing-deadline")).toBe(true);
+    expect(result.fields.deadline).toBe("");
+  });
+
+  it("extracts a month-first explicit date, time, and timezone in full", () => {
+    const message = "Finally, email the PDF report to Arjun by October 30, 2026, at 5 PM IST.";
+    const result = analyzeMessage(message, { requiredFields: ["deadline", "recipient"] });
+    expect(result.fields.deadline).toBe("October 30, 2026, at 5 PM IST");
+    expect(result.fields.recipient).toBe("Arjun");
+    expect(result.findings.some((finding) => finding.id === "missing-deadline")).toBe(false);
+    expect(result.findings.some((finding) => finding.id === "relative-deadline")).toBe(false);
+  });
+
+  it("continues to flag a relative weekday deadline such as by Friday", () => {
+    const result = analyzeMessage("Please email the PDF report to Arjun by Friday.", { requiredFields: ["deadline"] });
+    expect(result.fields.deadline).toBe("Friday");
+    expect(result.findings.some((finding) => finding.id === "relative-deadline")).toBe(true);
+    expect(result.findings.some((finding) => finding.id === "missing-deadline")).toBe(false);
+  });
+
+  it("keeps all explicitly marked actions in their original order with the final explicit deadline", () => {
+    const message = "First, wait for the API deployment to finish. Then update the dashboard with the latest metrics. Finally, email the PDF report to Arjun by October 30, 2026, at 5 PM IST.";
+    const result = analyzeMessage(message, { requiredFields: ["deadline", "recipient", "nextAction"] });
+    expect(result.fields.nextAction).toBe(
+      "1. wait for the API deployment to finish\n2. update the dashboard with the latest metrics\n3. email the PDF report to Arjun by October 30, 2026, at 5 PM IST"
+    );
+    expect(result.fields.deadline).toBe("October 30, 2026, at 5 PM IST");
+    expect(result.fields.recipient).toBe("Arjun");
+    expect(result.fields.owner).toBe("");
+  });
+
+  it("retains the complete explicit deadline in the generated handoff", () => {
+    const message = "First, wait for the API deployment to finish. Then update the dashboard with the latest metrics. Finally, email the PDF report to Arjun by October 30, 2026, at 5 PM IST.";
+    const result = analyzeMessage(message, { requiredFields: ["deadline", "recipient", "nextAction"] });
+    const draft = generateHandoff(result.fields, result.findings);
+    expect(draft).toContain("Deadline: October 30, 2026, at 5 PM IST");
+    expect(draft).toContain("1. wait for the API deployment to finish\n2. update the dashboard with the latest metrics\n3. email the PDF report to Arjun by October 30, 2026, at 5 PM IST");
+    expect(draft).toContain("Recipient: Arjun");
+    expect(draft).toContain("Owner: [Confirm owner]");
   });
 
   it("flags relative deadlines rather than silently treating them as exact", () => {

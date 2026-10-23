@@ -212,6 +212,27 @@ export function getUnresolvedFindings(
   );
 }
 
+const MONTH_NAME_PATTERN = "(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)";
+const RELATIVE_DATE_PATTERN = "(?:(?:next|this)\\s+)?(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|tomorrow|tonight|today|next week|end of day|EOD|the meeting|ASAP|soon|shortly|later)";
+const DATE_PATTERN = "(?:\\d{4}-\\d{2}-\\d{2}|" + MONTH_NAME_PATTERN + "\\s+\\d{1,2}(?:,\\s*\\d{4})?|\\d{1,2}\\s+" + MONTH_NAME_PATTERN + "(?:\\s+\\d{4})?|" + RELATIVE_DATE_PATTERN + ")";
+const TIME_AND_ZONE_PATTERN = "(?:\\s*,?\\s*(?:at\\s+)?\\d{1,2}(?::\\d{2})?\\s*(?:am|pm)(?:\\s+[A-Z]{2,5})?)?";
+
+function extractOrderedActions(text: string): string {
+  const sentences = (text.match(/[^.!?]+[.!?]?/g) ?? [])
+    .map((sentence) => normalizeWhitespace(sentence))
+    .filter(Boolean);
+  const stepMarker = /^(?:first|second|third|fourth|then|next|after that|finally|lastly)\b\s*,?\s*/i;
+  const markedSteps = sentences
+    .filter((sentence) => stepMarker.test(sentence))
+    .map((sentence) => sentence
+      .replace(stepMarker, "")
+      .replace(/[.!?]+$/, "")
+      .trim());
+
+  if (markedSteps.length < 2 || markedSteps.some((step) => !step)) return "";
+  return markedSteps.map((step, index) => (index + 1) + ". " + step).join("\n");
+}
+
 function findFacts(text: string): HandoffFields {
   const fields = EMPTY_FIELDS();
 
@@ -246,9 +267,10 @@ function findFacts(text: string): HandoffFields {
     /\b(?:send|share|deliver|email|forward|attach|submit)\s+(?:the|a|an)?\s*((?:final\s+)?(?:pdf|csv|spreadsheet|document|report|presentation|slides|summary|analysis|notebook|prototype|demo|pull request|pr))\b/i
   ]);
 
+  const deadlineValuePattern = "(" + DATE_PATTERN + TIME_AND_ZONE_PATTERN + ")";
   fields.deadline = capture(text, [
-    /\b(?:deadline|due date|due)\s*(?::|is)?\s*((?:\d{4}-\d{2}-\d{2}|(?:(?:next|this)\s+)?(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|tomorrow|tonight|today|next week|end of day|EOD|the meeting|ASAP|soon|shortly|later)|\d{1,2}\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)(?:\s+\d{4})?)(?:\s+(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm)(?:\s+[A-Z]{2,5})?)?)/i,
-    /\b(?:by|before|due(?:\s+on)?)\s+((?:\d{4}-\d{2}-\d{2}|(?:(?:next|this)\s+)?(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|tomorrow|tonight|today|next week|end of day|EOD|the meeting|ASAP|soon|shortly|later)|\d{1,2}\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)(?:\s+\d{4})?)(?:\s+(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm)(?:\s+[A-Z]{2,5})?)?)/i
+    new RegExp("\\b(?:deadline|due date|due)\\s*(?::|is)?\\s*" + deadlineValuePattern, "i"),
+    new RegExp("\\b(?:by|before|due(?:\\s+on)?)\\s+" + deadlineValuePattern, "i")
   ]);
 
   fields.dependency = capture(text, [
@@ -275,6 +297,9 @@ function findFacts(text: string): HandoffFields {
       ""
     ).trim();
   }
+
+  const orderedActions = extractOrderedActions(text);
+  if (orderedActions) fields.nextAction = orderedActions;
 
   return fields;
 }

@@ -93,7 +93,7 @@ const FIELD_HINTS: Partial<Record<FieldKey, string>> = {
   deliverable: "Describe the actual artifact and how it will be judged complete.",
   deadline: "Prefer an exact date, time, and timezone.",
   dependency: "Enter a prerequisite, or write “None” if confirmed.",
-  nextAction: "State the first action someone can take now."
+  nextAction: "Keep sequential actions in order, one step per line."
 };
 
 function App() {
@@ -450,7 +450,19 @@ function App() {
                             </span>
                           )}
                         </label>
-                        <input id={"field-" + field} value={fields[field]} onChange={(event) => updateField(field, event.target.value)} placeholder={"Confirm " + FIELD_LABELS[field].toLowerCase()} aria-describedby={"hint-" + field} />
+                        {field === "nextAction" ? (
+                          <textarea
+                            id={"field-" + field}
+                            className="field-textarea"
+                            rows={4}
+                            value={fields[field]}
+                            onChange={(event) => updateField(field, event.target.value)}
+                            placeholder="Enter ordered steps, one per line"
+                            aria-describedby={"hint-" + field}
+                          />
+                        ) : (
+                          <input id={"field-" + field} value={fields[field]} onChange={(event) => updateField(field, event.target.value)} placeholder={"Confirm " + FIELD_LABELS[field].toLowerCase()} aria-describedby={"hint-" + field} />
+                        )}
                         <small id={"hint-" + field}>{FIELD_HINTS[field]}</small>
                       </div>
                     ))}
