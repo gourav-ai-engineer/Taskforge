@@ -102,6 +102,13 @@ describe("analyzeMessage", () => {
     expect(MAX_MESSAGE_LENGTH).toBe(3000);
   });
 
+  it("returns a clear validation finding for oversized input", () => {
+    const result = analyzeMessage("x".repeat(MAX_MESSAGE_LENGTH + 1));
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0]?.id).toBe("message-too-long");
+    expect(result.characterCount).toBe(MAX_MESSAGE_LENGTH + 1);
+  });
+
   it("returns an informational result when common checks find no issue", () => {
     const result = analyzeMessage("Owner: Riya\nDeliverable: report\nDeadline: 12 December 2026");
     expect(result.findings.length).toBeGreaterThan(0);
