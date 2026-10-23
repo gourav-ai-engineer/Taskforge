@@ -103,6 +103,17 @@ describe("analyzeMessage", () => {
     expect(result.findings.some((finding) => finding.id === "ambiguous-reference")).toBe(false);
   });
 
+  it("extracts a direct imperative as the next action when requested", () => {
+    const result = analyzeMessage("Review the API by Friday.", { requiredFields: ["nextAction"] });
+    expect(result.fields.nextAction).toMatch(/^Review the API by Friday/i);
+    expect(result.findings.some((finding) => finding.id === "missing-next-action")).toBe(false);
+  });
+
+  it("flags a vague request with no identifiable next action when requested", () => {
+    const result = analyzeMessage("We should make progress soon.", { requiredFields: ["nextAction"] });
+    expect(result.findings.some((finding) => finding.id === "missing-next-action")).toBe(true);
+  });
+
   it("flags sequences that may need clarification", () => {
     const result = analyzeMessage("After the API is ready, update the dashboard and then send it to Arjun by Friday.");
     expect(result.findings.some((finding) => finding.id === "multi-step-sequence")).toBe(true);

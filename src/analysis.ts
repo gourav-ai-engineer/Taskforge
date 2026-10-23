@@ -150,7 +150,10 @@ function findFacts(text: string): HandoffFields {
   fields.nextAction = capture(text, [
     /\bnext action\s*:\s*([^\n.!?]+)/i,
     /\bnext step\s*:\s*([^\n.!?]+)/i,
-    /\b(?:first|initially|start by)\s+([^\n.!?]+)/i
+    /\b(?:first|initially|start by)\s+([^\n.!?]+)/i,
+    /(?:^|\n)\s*(?:please\s+)?(?:can you|could you|can someone|can somebody|could someone)\s+((?:finish|complete|prepare|create|review|fix|test|build|send|share|submit|publish|run|analy[sz]e|write|deliver|update|check|confirm|provide|verify|deploy|schedule|contact|coordinate|document|design|evaluate|open|close|compare|extract|summari[sz]e|measure|approve|install|execute|export)\b[^\n.!?]*)/i,
+    /(?:^|\n)\s*(?:please\s+)?((?:finish|complete|prepare|create|review|fix|test|build|send|share|submit|publish|run|analy[sz]e|write|deliver|update|check|confirm|provide|verify|deploy|schedule|contact|coordinate|document|design|evaluate|open|close|compare|extract|summari[sz]e|measure|approve|install|execute|export)\b[^\n.!?]*)/i,
+    /\b(?:you should|you must|you need to|need to|should|must)\s+((?:finish|complete|prepare|create|review|fix|test|build|send|share|submit|publish|run|analy[sz]e|write|deliver|update|check|confirm|provide|verify|deploy|schedule|contact|coordinate|document|design|evaluate|open|close|compare|extract|summari[sz]e|measure|approve|install|execute|export)\b[^\n.!?]*)/i
   ]);
 
   return fields;
@@ -361,7 +364,7 @@ export function analyzeMessage(
     fields.deadline = "";
   }
 
-  if (required.has("nextAction") && !fields.nextAction && !/\b(?:please|can you|could you|need to|must|should|complete|prepare|create|review|send|build|test|update|submit|finish|analyze|analyse)\b/i.test(text)) {
+  if (required.has("nextAction") && !fields.nextAction) {
     addFinding(findings, {
       kind: "missing",
       severity: "medium",

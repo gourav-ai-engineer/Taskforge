@@ -104,6 +104,8 @@ function App() {
   const [error, setError] = useState("");
   const [showChecks, setShowChecks] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [draftManuallyEdited, setDraftManuallyEdited] = useState(false);
+  const [confirmDraftReplacement, setConfirmDraftReplacement] = useState(false);
   const resultRef = useRef<HTMLElement>(null);
   const editorRef = useRef<HTMLTextAreaElement>(null);
 
@@ -138,6 +140,8 @@ function App() {
     setError("");
     setNotice("Loaded example: " + example.label + ". Review the text, then check the handoff.");
     setCopied(false);
+    setDraftManuallyEdited(false);
+    setConfirmDraftReplacement(false);
   }
 
   function clearResults() {
@@ -148,6 +152,8 @@ function App() {
     setNotice("");
     setError("");
     setCopied(false);
+    setDraftManuallyEdited(false);
+    setConfirmDraftReplacement(false);
   }
 
   function runAnalysis() {
@@ -164,6 +170,8 @@ function App() {
     setFields(result.fields);
     setHandoff(generateHandoff(result.fields, result.findings));
     setDraftNeedsRefresh(false);
+    setDraftManuallyEdited(false);
+    setConfirmDraftReplacement(false);
     setNotice("Analysis complete. Review each suggestion and confirm details before sharing.");
   }
 
@@ -175,9 +183,30 @@ function App() {
 
   function refreshDraft() {
     if (!fields || !analysis) return;
+    if (draftManuallyEdited) {
+      setConfirmDraftReplacement(true);
+      setNotice("This draft contains manual edits. Confirm before replacing them with a generated draft.");
+      return;
+    }
+    replaceDraftFromFields();
+  }
+
+  function replaceDraftFromFields() {
+    if (!fields || !analysis) return;
     setHandoff(generateHandoff(fields, analysis.findings));
     setDraftNeedsRefresh(false);
+    setDraftManuallyEdited(false);
+    setConfirmDraftReplacement(false);
+    setCopied(false);
     setNotice("Handoff draft updated. Bracketed fields still need confirmation.");
+  }
+
+  function focusField(field: FieldKey) {
+    const element = document.getElementById("field-" + field);
+    if (element instanceof HTMLElement) {
+      element.focus();
+      element.scrollIntoView({ behavior: "auto", block: "center" });
+    }
   }
 
   async function copyHandoff() {
@@ -310,7 +339,7 @@ function App() {
                   <ChevronDown size={17} className={showChecks ? "rotate" : ""} aria-hidden="true" />
                 </button>
                 {showChecks && <div className="requirement-options" id="required-fields">
-                  {(["owner", "deliverable", "deadline", "recipient", "dependency"] as FieldKey[]).map((field) => (
+                  {(["owner", "deliverable", "deadline", "recipient", "dependency", "nextAction"] as FieldKey[]).map((field) => (
                     <label key={field} className="check-option">
                       <input type="checkbox" checked={requiredFields.includes(field)} onChange={() => toggleRequired(field)} />
                       <span>{FIELD_LABELS[field]}</span>
@@ -367,7 +396,7 @@ function App() {
                 <div className="findings-column">
                   <div className="subsection-header"><h3>Signals to review</h3><span>{analysis.findings.length} {analysis.findings.length === 1 ? "finding" : "findings"}</span></div>
                   <div className="finding-list">
-                    {analysis.findings.map((finding) => <FindingCard finding={finding} key={finding.id} />)}
+                    {analysis.findings.map((finding) => <FindingCard finding={finding} key={finding.id} onFocusField={focusField} />)}
                   </div>
                   <div className="extracted-card">
                     <div className="extracted-title"><FileText size={17} aria-hidden="true" /><div><strong>Explicit details found</strong><small>Only facts the rules could identify in the message.</small></div></div>
@@ -395,7 +424,7 @@ function App() {
                 <div className="handoff-heading">
                   <div><div className="section-kicker">THE HANDOFF</div><h3 id="handoff-title">A draft you can stand behind.</h3><p>Bracketed items are unknown or need confirmation. Edit before sending.</p></div>
                   <div className="handoff-actions">
-                    <button type="button" className="ghost-button" onClick={refreshDraft}><RotateCcw size={14} aria-hidden="true" /> {draftNeedsRefresh ? "Update draft" : "Regenerate"}</button>
+                    <button type="button" className="ghost-button" onClick={refreshDraft}><RotateCcw size={14} aria-hidden="true" /> {confirmDraftReplacement ? "Replacement options" : draftNeedsRefresh ? "Update draft" : "Regenerate"}</button>
                     <button type="button" className="ghost-button" onClick={downloadHandoff}><Download size={15} aria-hidden="true" /> Download .txt</button>
                     <button type="button" className="primary-button copy-button" onClick={copyHandoff}><Clipboard size={15} aria-hidden="true" /> {copied ? "Copied" : "Copy handoff"}</button>
                   </div>
@@ -406,9 +435,18 @@ function App() {
                     <CheckCircle2 size={15} aria-hidden="true" /><span>{notice}</span>
                   </div>
                 )}
-                {draftNeedsRefresh && <div className="draft-warning" role="status">You changed a field. Update the draft to include your latest details. If you also edited the draft text, regenerating will replace those manual edits.</div>}
+                {confirmDraftReplacement && (
+                  <div className="draft-replacement-confirm" role="alert">
+                    <div><strong>Replace your manual edits?</strong><p>Generating again will replace the text you edited directly and rebuild this draft from the structured fields.</p></div>
+                    <div className="replacement-actions">
+                      <button type="button" className="primary-button" onClick={replaceDraftFromFields}>Replace draft</button>
+                      <button type="button" className="ghost-button" onClick={() => { setConfirmDraftReplacement(false); setNotice("Kept your manually edited handoff."); }}>Keep current draft</button>
+                    </div>
+                  </div>
+                )}
+                {draftNeedsRefresh && <div className="draft-warning" role="status">You changed a field. Update the draft to include your latest details.</div>}
                 <label className="sr-only" htmlFor="handoff-output">Editable handoff draft</label>
-                <textarea id="handoff-output" className="handoff-editor" value={handoff} onChange={(event) => { setHandoff(event.target.value); setDraftNeedsRefresh(false); setCopied(false); }} rows={13} />
+                <textarea id="handoff-output" className="handoff-editor" value={handoff} onChange={(event) => { setHandoff(event.target.value); setDraftNeedsRefresh(false); setCopied(false); setDraftManuallyEdited(true); setConfirmDraftReplacement(false); }} rows={13} />
                 <div className="handoff-foot"><span><ShieldCheck size={14} aria-hidden="true" /> Unconfirmed details stay visible.</span><span>You remain the final editor.</span></div>
               </section>
             </section>
@@ -431,7 +469,7 @@ function App() {
   );
 }
 
-function FindingCard({ finding }: { finding: Finding }) {
+function FindingCard({ finding, onFocusField }: { finding: Finding; onFocusField: (field: FieldKey) => void }) {
   const kindLabel = finding.kind === "info" ? "INFO" : finding.kind === "missing" ? "MISSING" : finding.kind === "ambiguous" ? "AMBIGUOUS" : "POSSIBLE CONFLICT";
   return (
     <article className={"finding-card severity-" + finding.severity}>
@@ -440,6 +478,7 @@ function FindingCard({ finding }: { finding: Finding }) {
       {finding.excerpt && <blockquote><span aria-hidden="true">“</span>{finding.excerpt}<span aria-hidden="true">”</span></blockquote>}
       <p className="finding-why">{finding.why}</p>
       <div className="question-box"><span className="question-mark"><HelpCircle size={15} aria-hidden="true" /></span><div><span>QUESTION TO ASK</span><p>{finding.question}</p></div></div>
+      <button type="button" className="review-field-link" onClick={() => onFocusField(finding.field)} aria-label={"Review " + FIELD_LABELS[finding.field] + " field for: " + finding.title}>Review related field <ArrowRight size={13} aria-hidden="true" /></button>
     </article>
   );
 }
