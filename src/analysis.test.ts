@@ -45,6 +45,14 @@ describe("analyzeMessage", () => {
     expect(result.fields.deadline).toBe("");
   });
 
+  it("preserves a known weekday while clearly marking exact timing as unconfirmed", () => {
+    const result = analyzeMessage("After the API is ready, update the dashboard and then send it to Arjun by Friday.");
+    expect(result.fields.deadline).toBe("Friday");
+    const draft = generateHandoff(result.fields, result.findings);
+    expect(draft).toContain("Deadline: Friday (confirm exact date/time)");
+    expect(draft).toContain("What exact date and time does this deadline refer to?");
+  });
+
   it("does not flag an explicit weekday and clock time as merely relative", () => {
     const result = analyzeMessage("Finish the report by Friday at 4 PM IST.", { requiredFields: ["deadline"] });
     expect(result.findings.some((finding) => finding.id === "relative-deadline")).toBe(false);
@@ -114,9 +122,10 @@ describe("analyzeMessage", () => {
     expect(result.findings.some((finding) => finding.id === "missing-next-action")).toBe(true);
   });
 
-  it("flags sequences that may need clarification", () => {
+  it("does not flag an explicit action sequence as unclear", () => {
     const result = analyzeMessage("After the API is ready, update the dashboard and then send it to Arjun by Friday.");
-    expect(result.findings.some((finding) => finding.id === "multi-step-sequence")).toBe(true);
+    expect(result.findings.some((finding) => finding.id === "multi-step-sequence")).toBe(false);
+    expect(result.findings.some((finding) => finding.id === "multiple-actions-no-sequence")).toBe(false);
   });
 
   it("flags combined actions when no order is made explicit", () => {
@@ -131,6 +140,15 @@ describe("analyzeMessage", () => {
       value: "Riya Sharma",
       evidence: "Owner: Riya Sharma"
     });
+  });
+
+  it("uses concise evidence for recipient and dependency facts in a natural sentence", () => {
+    const result = analyzeMessage("After the API is ready, update the dashboard and then send it to Arjun by Friday.");
+    const recipient = result.explicitFacts.find((fact) => fact.field === "recipient");
+    const dependency = result.explicitFacts.find((fact) => fact.field === "dependency");
+    expect(recipient?.evidence).toContain("send it to Arjun");
+    expect(recipient?.evidence.length).toBeLessThan(100);
+    expect(dependency?.evidence).toBe("After the API is ready");
   });
 
   it("keeps unknown values empty rather than inventing them", () => {
