@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   analyzeMessage,
+  applyManualFieldEdits,
   generateHandoff,
   MAX_MESSAGE_LENGTH,
   type HandoffFields
@@ -178,6 +179,39 @@ describe("analyzeMessage", () => {
     const result = analyzeMessage("Owner: Riya\nDeliverable: report\nDeadline: 12 December 2026");
     expect(result.findings.length).toBeGreaterThan(0);
     expect(result.findings.some((finding) => finding.id === "looks-clear" || finding.severity === "low")).toBe(true);
+  });
+});
+
+describe("applyManualFieldEdits", () => {
+  const extracted: HandoffFields = {
+    taskTitle: "Publish report",
+    owner: "",
+    recipient: "QA team",
+    deliverable: "Markdown report",
+    deadline: "Friday",
+    dependency: "",
+    nextAction: "Run tests"
+  };
+
+  it("preserves edited values when a changed source message is reanalyzed", () => {
+    const merged = applyManualFieldEdits(extracted, {
+      owner: "Riya",
+      deadline: "Friday 4 PM IST"
+    });
+    expect(merged.owner).toBe("Riya");
+    expect(merged.deadline).toBe("Friday 4 PM IST");
+    expect(merged.recipient).toBe("QA team");
+  });
+
+  it("preserves a deliberately cleared field instead of restoring an extracted value", () => {
+    const merged = applyManualFieldEdits(extracted, { recipient: "" });
+    expect(merged.recipient).toBe("");
+  });
+
+  it("does not mutate the extracted object", () => {
+    const merged = applyManualFieldEdits(extracted, { owner: "Riya" });
+    expect(extracted.owner).toBe("");
+    expect(merged.owner).toBe("Riya");
   });
 });
 

@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import {
   analyzeMessage,
+  applyManualFieldEdits,
   DEFAULT_REQUIRED_FIELDS,
   FIELD_LABELS,
   MAX_MESSAGE_LENGTH,
@@ -98,6 +99,8 @@ function App() {
   const [requiredFields, setRequiredFields] = useState<FieldKey[]>(DEFAULT_REQUIRED_FIELDS);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [fields, setFields] = useState<HandoffFields | null>(null);
+  const [manualFieldEdits, setManualFieldEdits] = useState<Partial<HandoffFields>>({});
+  const [fieldsToReview, setFieldsToReview] = useState<FieldKey[]>([]);
   const [handoff, setHandoff] = useState("");
   const [draftNeedsRefresh, setDraftNeedsRefresh] = useState(false);
   const [notice, setNotice] = useState("");
@@ -139,6 +142,8 @@ function App() {
     setDraftNeedsRefresh(false);
     setError("");
     setNotice("Loaded example: " + example.label + ". Review the text, then check the handoff.");
+    setManualFieldEdits({});
+    setFieldsToReview([]);
     setCopied(false);
     setDraftManuallyEdited(false);
     setConfirmDraftReplacement(false);
@@ -166,17 +171,21 @@ function App() {
       return;
     }
     const result = analyzeMessage(message, { requiredFields });
+    const mergedFields = applyManualFieldEdits(result.fields, manualFieldEdits);
     setAnalysis(result);
-    setFields(result.fields);
-    setHandoff(generateHandoff(result.fields, result.findings));
+    setFields(mergedFields);
+    setHandoff(generateHandoff(mergedFields, result.findings));
     setDraftNeedsRefresh(false);
     setDraftManuallyEdited(false);
     setConfirmDraftReplacement(false);
-    setNotice("Analysis complete. Review each suggestion and confirm details before sharing.");
+    setNotice(fieldsToReview.length
+      ? "Analysis complete. Your previous field edits were preserved; review them against the changed message."
+      : "Analysis complete. Review each suggestion and confirm details before sharing.");
   }
 
   function updateField(field: FieldKey, value: string) {
     setFields((current) => current ? { ...current, [field]: value } : current);
+    setManualFieldEdits((current) => ({ ...current, [field]: value }));
     setDraftNeedsRefresh(true);
     setCopied(false);
   }
@@ -239,6 +248,8 @@ function App() {
   function resetAll() {
     setMessage("");
     setRequiredFields(DEFAULT_REQUIRED_FIELDS);
+    setManualFieldEdits({});
+    setFieldsToReview([]);
     clearResults();
     setNotice("Workspace reset. Your message was not saved by this app.");
     window.setTimeout(() => editorRef.current?.focus(), 0);
@@ -307,7 +318,11 @@ function App() {
                   setError("");
                   if (analysis) {
                     clearResults();
-                    setNotice("Message changed. Run the check again to refresh the analysis.");
+                    const editedFields = Object.keys(manualFieldEdits) as FieldKey[];
+                    if (editedFields.length) setFieldsToReview(editedFields);
+                    setNotice(editedFields.length
+                      ? "Message changed. Previous field edits will be preserved for review after reanalysis."
+                      : "Message changed. Run the check again to refresh the analysis.");
                   }
                 }}
                 maxLength={MAX_MESSAGE_LENGTH + 100}
@@ -385,6 +400,18 @@ function App() {
                 <button className="ghost-button reset-button" type="button" onClick={resetAll}><RotateCcw size={15} aria-hidden="true" /> Start over</button>
               </div>
 
+              {fieldsToReview.length > 0 && (
+                <div className="retained-fields-banner" role="status" aria-live="polite">
+                  <div>
+                    <strong>Previous edits were preserved</strong>
+                    <p>Review the highlighted fields to ensure they still apply to this changed message. These are user-entered values, not facts extracted from the new text.</p>
+                  </div>
+                  <button type="button" className="ghost-button" onClick={() => {
+                    setFieldsToReview([]);
+                    setNotice("Retained field edits marked as reviewed.");
+                  }}>Mark values reviewed</button>
+                </div>
+              )}
               <div className="summary-strip" aria-label="Analysis summary">
                 <div className="summary-cell"><span className="summary-value">{analysis.findings.filter((item) => item.kind !== "info" && item.id !== "looks-clear").length}</span><span className="summary-label">Questions to review</span></div>
                 <div className="summary-cell"><span className="summary-value">{missingCount}</span><span className="summary-label">Missing details</span></div>
@@ -410,7 +437,15 @@ function App() {
                   <div className="fields-card">
                     {FIELD_ORDER.map((field) => (
                       <div className="field-row" key={field}>
-                        <label htmlFor={"field-" + field}>{FIELD_LABELS[field]}{requiredFields.includes(field) && <span className="field-required" aria-label="required for this check"> *</span>}</label>
+                        <label htmlFor={"field-" + field}>
+                          {FIELD_LABELS[field]}
+                          {requiredFields.includes(field) && <span className="field-required" aria-label="required for this check"> *</span>}
+                          {Object.prototype.hasOwnProperty.call(manualFieldEdits, field) && (
+                            <span className={"field-origin" + (fieldsToReview.includes(field) ? " needs-review" : "")}>
+                              {fieldsToReview.includes(field) ? "REVIEW AGAIN" : "USER EDITED"}
+                            </span>
+                          )}
+                        </label>
                         <input id={"field-" + field} value={fields[field]} onChange={(event) => updateField(field, event.target.value)} placeholder={"Confirm " + FIELD_LABELS[field].toLowerCase()} aria-describedby={"hint-" + field} />
                         <small id={"hint-" + field}>{FIELD_HINTS[field]}</small>
                       </div>

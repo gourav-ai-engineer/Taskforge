@@ -69,6 +69,18 @@ const EMPTY_FIELDS = (): HandoffFields => ({
   nextAction: ""
 });
 
+/**
+ * Keep values that the user edited even when the source message is analyzed again.
+ * An empty string is also a meaningful edit: it prevents an old inferred value
+ * from silently reappearing after the user deliberately cleared the field.
+ */
+export function applyManualFieldEdits(
+  extracted: HandoffFields,
+  manualEdits: Partial<HandoffFields>
+): HandoffFields {
+  return { ...extracted, ...manualEdits };
+}
+
 const normalizeWhitespace = (value: string) =>
   value.replace(/\s+/g, " ").trim();
 
