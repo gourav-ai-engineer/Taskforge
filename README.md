@@ -11,6 +11,8 @@ Messages like “Can someone finish the evaluation and send it over before the m
 ## Features
 - Analyze pasted task messages with deterministic, explainable rules.
 - Inspect extracted facts with supporting evidence, jump from findings to the related field, and edit structured handoff fields.
+- Preserve user-edited fields across reanalysis; clearly flag retained values for review when the source message changes.
+- Track unresolved questions based on edited values and keep a relative deadline unresolved until a concrete date/time is entered.
 - Flag missing ownership, unclear deliverables, vague requests, relative deadlines, ambiguous references, dependencies, multiple actions, and potentially conflicting timing.
 - Choose which fields are required for a particular handoff.
 - Use five editable demo scenarios, including a well-specified message.
@@ -94,4 +96,4 @@ This implementation uses no external AI inference API. It uses open-source front
 7. Close with the local-first privacy model and heuristic limitations.
 
 ## Project status
-The repository contains the application source and automated tests. Run the quality-check commands above in your environment and inspect the CI result before treating a release or submission as verified.
+The latest implementation commit has passed GitHub Actions checks: lint, TypeScript typecheck, 39 unit tests, dependency audit, and production build. See [the successful workflow](https://github.com/gourav-ai-engineer/Taskforge/actions/runs/39917562164). Manual browser, keyboard-only, screen-reader, and public deployment verification still need to be completed before claiming full accessibility or submission readiness.
