@@ -24,6 +24,7 @@ import {
   FIELD_LABELS,
   MAX_MESSAGE_LENGTH,
   generateHandoff,
+  resolveHandoffDraft,
   type AnalysisResult,
   type FieldKey,
   type Finding,
@@ -96,6 +97,8 @@ const FIELD_HINTS: Partial<Record<FieldKey, string>> = {
   nextAction: "Keep sequential actions in order, one step per line."
 };
 
+const KEPT_DRAFT_NOTICE = " Your edited handoff draft is kept and will be shown again after the check runs.";
+
 function App() {
   const [message, setMessage] = useState("");
   const [requiredFields, setRequiredFields] = useState<FieldKey[]>(DEFAULT_REQUIRED_FIELDS);
@@ -130,12 +133,13 @@ function App() {
       current.includes(field) ? current.filter((item) => item !== field) : [...current, field]
     );
     if (hasExistingAnalysis) {
-      clearResults();
-      setNotice("Required checks changed. Run the analysis again to update the findings.");
+      clearResults({ keepManualDraft: true });
+      setNotice("Required checks changed. Run the analysis again to update the findings." + (draftManuallyEdited ? KEPT_DRAFT_NOTICE : ""));
     }
   }
 
   function chooseExample(example: Example) {
+    if (draftManuallyEdited && !window.confirm("Load this example and discard your manually edited handoff draft?")) return;
     setMessage(example.message);
     setRequiredFields(example.required);
     setAnalysis(null);
@@ -151,15 +155,18 @@ function App() {
     setConfirmDraftReplacement(false);
   }
 
-  function clearResults() {
+  function clearResults({ keepManualDraft = false }: { keepManualDraft?: boolean } = {}) {
     setAnalysis(null);
     setFields(null);
-    setHandoff("");
+    // A hand-edited draft survives until the user explicitly chooses to replace it.
+    if (!(keepManualDraft && draftManuallyEdited)) {
+      setHandoff("");
+      setDraftManuallyEdited(false);
+    }
     setDraftNeedsRefresh(false);
     setNotice("");
     setError("");
     setCopied(false);
-    setDraftManuallyEdited(false);
     setConfirmDraftReplacement(false);
   }
 
@@ -174,15 +181,21 @@ function App() {
     }
     const result = analyzeMessage(message, { requiredFields });
     const mergedFields = applyManualFieldEdits(result.fields, manualFieldEdits);
+    const { draft, needsConfirmation } = resolveHandoffDraft(
+      generateHandoff(mergedFields, result.findings, manualFieldEdits, fieldsToReview),
+      handoff,
+      draftManuallyEdited
+    );
     setAnalysis(result);
     setFields(mergedFields);
-    setHandoff(generateHandoff(mergedFields, result.findings, manualFieldEdits, fieldsToReview));
+    setHandoff(draft);
     setDraftNeedsRefresh(false);
-    setDraftManuallyEdited(false);
-    setConfirmDraftReplacement(false);
-    setNotice(fieldsToReview.length
+    setDraftManuallyEdited(needsConfirmation);
+    setConfirmDraftReplacement(needsConfirmation);
+    setNotice((fieldsToReview.length
       ? "Analysis complete. Your previous field edits were preserved; review them against the changed message."
-      : "Analysis complete. Review each suggestion and confirm details before sharing.");
+      : "Analysis complete. Review each suggestion and confirm details before sharing.")
+      + (needsConfirmation ? " Your manually edited handoff draft was kept; choose whether to replace it." : ""));
   }
 
   function updateField(field: FieldKey, value: string) {
@@ -249,6 +262,7 @@ function App() {
   }
 
   function resetAll() {
+    if (draftManuallyEdited && !window.confirm("Start over and discard your manually edited handoff draft?")) return;
     setMessage("");
     setRequiredFields(DEFAULT_REQUIRED_FIELDS);
     setManualFieldEdits({});
@@ -321,12 +335,13 @@ function App() {
                   setMessage(event.target.value);
                   setError("");
                   if (analysis) {
-                    clearResults();
+                    clearResults({ keepManualDraft: true });
                     const editedFields = Object.keys(manualFieldEdits) as FieldKey[];
                     if (editedFields.length) setFieldsToReview(editedFields);
-                    setNotice(editedFields.length
+                    setNotice((editedFields.length
                       ? "Message changed. Previous field edits will be preserved for review after reanalysis."
-                      : "Message changed. Run the check again to refresh the analysis.");
+                      : "Message changed. Run the check again to refresh the analysis.")
+                      + (draftManuallyEdited ? KEPT_DRAFT_NOTICE : ""));
                   }
                 }}
                 maxLength={MAX_MESSAGE_LENGTH + 100}

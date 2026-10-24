@@ -58,7 +58,7 @@ The repository was created on October 23, 2026, and the implementation commits s
 | Dependency install | PASS | GitHub Actions |
 | Lint | PASS | GitHub Actions |
 | TypeScript typecheck | PASS | GitHub Actions |
-| Unit tests | PASS — 39 passed | GitHub Actions |
+| Unit tests | PASS — 39 passed at the audited commit (the suite now has 58 tests) | GitHub Actions |
 | Dependency audit | PASS — 0 vulnerabilities reported by npm audit | GitHub Actions |
 | Production build | PASS | GitHub Actions |
 | Browser-level end-to-end walkthrough | NOT TESTED by this audit agent | Requires running browser/testing session |
