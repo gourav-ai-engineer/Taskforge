@@ -5,6 +5,7 @@ import {
   getUnresolvedFindings,
   generateHandoff,
   MAX_MESSAGE_LENGTH,
+  resolveHandoffDraft,
   type HandoffFields
 } from "./analysis";
 
@@ -125,6 +126,53 @@ describe("analyzeMessage", () => {
     const result = analyzeMessage("The deadline is Friday, not Monday.", { requiredFields: ["deadline"] });
     expect(result.findings.some((finding) => finding.id === "multiple-timing-references")).toBe(false);
     expect(result.fields.deadline).toBe("Friday");
+  });
+
+  it("does not treat 'the deadline is required' as an explicit absence of a deadline", () => {
+    const result = analyzeMessage("The deadline is required. Send the report to Arjun by Friday at 5 PM IST.", { requiredFields: ["deadline"] });
+    expect(result.fields.deadline).toBe("Friday at 5 PM IST");
+  });
+
+  it("still recognizes negative wording such as 'the deadline is not required'", () => {
+    const result = analyzeMessage("The deadline is not required for this task.", { requiredFields: ["deadline"] });
+    expect(result.fields.deadline).toMatch(/deadline is not required/i);
+    expect(result.findings.some((finding) => finding.id === "missing-deadline")).toBe(false);
+  });
+
+  it("keeps a 24-hour time and timezone with a day-first date", () => {
+    const result = analyzeMessage("Send the report by 30 October 2026 at 17:00 IST.", { requiredFields: ["deadline"] });
+    expect(result.fields.deadline).toBe("30 October 2026 at 17:00 IST");
+  });
+
+  it("keeps a 24-hour time and timezone with an ISO date", () => {
+    const result = analyzeMessage("Send the report by 2026-10-30 at 17:00 IST.", { requiredFields: ["deadline"] });
+    expect(result.fields.deadline).toBe("2026-10-30 at 17:00 IST");
+  });
+
+  it("keeps dotted p.m. times, including the final dot", () => {
+    const zoned = analyzeMessage("Send the report by Oct 30, 2026 at 5 p.m. IST.", { requiredFields: ["deadline"] });
+    expect(zoned.fields.deadline).toBe("Oct 30, 2026 at 5 p.m. IST");
+    const unzoned = analyzeMessage("Send the report by Friday at 5 p.m.", { requiredFields: ["deadline"] });
+    expect(unzoned.fields.deadline).toBe("Friday at 5 p.m.");
+    expect(unzoned.findings.some((finding) => finding.id === "relative-deadline")).toBe(false);
+  });
+
+  it("keeps a UTC offset as part of the deadline", () => {
+    const result = analyzeMessage("Send the report by 2026-10-30 at 11:30 UTC+5:30.", { requiredFields: ["deadline"] });
+    expect(result.fields.deadline).toBe("2026-10-30 at 11:30 UTC+5:30");
+  });
+
+  it("does not treat an ordinary word after the time as a timezone", () => {
+    const result = analyzeMessage("Send the report by Friday at 5 PM and then close the ticket.", { requiredFields: ["deadline"] });
+    expect(result.fields.deadline).toBe("Friday at 5 PM");
+  });
+
+  it("recognizes the owner in 'Riya will handle …' while still flagging the missing deliverable", () => {
+    const result = analyzeMessage("Riya will handle the model evaluation by Friday.", { requiredFields: ["owner", "deliverable", "deadline"] });
+    expect(result.fields.owner).toBe("Riya");
+    const ids = result.findings.map((finding) => finding.id);
+    expect(ids).not.toContain("missing-owner");
+    expect(ids).toContain("missing-deliverable");
   });
 
   it("respects an explicitly stated no-deadline requirement", () => {
@@ -291,6 +339,20 @@ describe("applyManualFieldEdits", () => {
     const merged = applyManualFieldEdits(extracted, { owner: "Riya" });
     expect(extracted.owner).toBe("");
     expect(merged.owner).toBe("Riya");
+  });
+});
+
+describe("resolveHandoffDraft", () => {
+  it("uses the generated draft when the user has not edited the handoff", () => {
+    expect(resolveHandoffDraft("generated", "old generated", false)).toEqual({ draft: "generated", needsConfirmation: false });
+  });
+
+  it("keeps a manually edited draft and asks before replacing it", () => {
+    expect(resolveHandoffDraft("generated", "my edited draft", true)).toEqual({ draft: "my edited draft", needsConfirmation: true });
+  });
+
+  it("does not ask about an edited draft that is now empty", () => {
+    expect(resolveHandoffDraft("generated", "   ", true)).toEqual({ draft: "generated", needsConfirmation: false });
   });
 });
 

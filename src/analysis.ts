@@ -81,6 +81,21 @@ export function applyManualFieldEdits(
   return { ...extracted, ...manualEdits };
 }
 
+/**
+ * Choose the handoff text to show after an analysis run. A draft the user edited by
+ * hand is never replaced silently; the caller must ask before regenerating it.
+ */
+export function resolveHandoffDraft(
+  generatedDraft: string,
+  currentDraft: string,
+  draftManuallyEdited: boolean
+): { draft: string; needsConfirmation: boolean } {
+  if (draftManuallyEdited && currentDraft.trim()) {
+    return { draft: currentDraft, needsConfirmation: true };
+  }
+  return { draft: generatedDraft, needsConfirmation: false };
+}
+
 const normalizeWhitespace = (value: string) =>
   value.replace(/\s+/g, " ").trim();
 
@@ -90,7 +105,8 @@ function capture(text: string, patterns: RegExp[]): string {
     if (match?.[1]) {
       const cleaned = match[1]
         .replace(/,\s*(?:not|rather than|instead of)\b[\s\S]*$/i, "")
-        .replace(/[.!?]+$/, "");
+        // Keep the final dot of "a.m." / "p.m." while removing sentence punctuation.
+        .replace(/(?<![ap]\.m)[.!?]+$/i, "");
       return normalizeWhitespace(cleaned);
     }
   }
@@ -185,7 +201,7 @@ function sourceEvidence(originalMessage: string, field: FieldKey, value: string)
 }
 
 function hasSpecificDeadline(value: string): boolean {
-  return /\b(?:at\s*)?\d{1,2}(?::\d{2})?\s*(?:am|pm)\b|\b\d{1,2}:\d{2}\b|\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}\s+(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?:\s+\d{4})?\b/i.test(value);
+  return /\b\d{1,2}(?::\d{2})?\s*(?:[ap]m\b|[ap]\.(?:m\.?)?)|\b\d{1,2}:\d{2}\b|\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}\s+(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?:\s+\d{4})?\b/i.test(value);
 }
 
 export function isFindingAddressed(
@@ -215,7 +231,12 @@ export function getUnresolvedFindings(
 const MONTH_NAME_PATTERN = "(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)";
 const RELATIVE_DATE_PATTERN = "(?:(?:next|this)\\s+)?(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|tomorrow|tonight|today|next week|end of day|EOD|the meeting|ASAP|soon|shortly|later)";
 const DATE_PATTERN = "(?:\\d{4}-\\d{2}-\\d{2}|" + MONTH_NAME_PATTERN + "\\s+\\d{1,2}(?:,\\s*\\d{4})?|\\d{1,2}\\s+" + MONTH_NAME_PATTERN + "(?:\\s+\\d{4})?|" + RELATIVE_DATE_PATTERN + ")";
-const TIME_AND_ZONE_PATTERN = "(?:\\s*,?\\s*(?:at\\s+)?\\d{1,2}(?::\\d{2})?\\s*(?:am|pm)(?:\\s+[A-Z]{2,5})?)?";
+// 12-hour times ("5 PM", "5:00 p.m.") or 24-hour times ("17:00").
+const TIME_PATTERN = "(?:\\d{1,2}(?::[0-5]\\d)?\\s*(?:[ap]m\\b|[ap]\\.m\\.?)|(?:[01]?\\d|2[0-3]):[0-5]\\d\\b)";
+// Deadline patterns are case-insensitive, so a generic capital-letter slot would also
+// swallow words such as "and". Only known zone abbreviations or UTC/GMT offsets count.
+const TIME_ZONE_PATTERN = "(?:\\s+(?:(?:UTC|GMT)(?:\\s*[+-]\\d{1,2}(?::?[0-5]\\d)?)?|IST|EST|EDT|CST|CDT|MST|MDT|PST|PDT|AKST|AKDT|HST|BST|CET|CEST|EET|EEST|WET|WEST|JST|KST|SGT|HKT|AEST|AEDT|ACST|AWST|NZST|NZDT)\\b)?";
+const TIME_AND_ZONE_PATTERN = "(?:\\s*,?\\s*(?:at\\s+)?" + TIME_PATTERN + TIME_ZONE_PATTERN + ")?";
 
 function extractOrderedActions(text: string): string {
   const sentences = (text.match(/[^.!?]+[.!?]?/g) ?? [])
@@ -244,7 +265,7 @@ function findFacts(text: string): HandoffFields {
   fields.owner = capture(text, [
     /\b(?:owner|assignee|assigned to)\s*:\s*([^\n.;]+)/i,
     /\b(?:owner|assignee|assigned to)\s+(?:is\s+)?([A-Z][A-Za-z'-]*(?:\s+[A-Z][A-Za-z'-]*){0,2})\b/i,
-    /\b([A-Z][A-Za-z'-]*(?:\s+[A-Z][A-Za-z'-]*){0,2})\s+will\s+(?:finish|complete|prepare|create|review|fix|test|build|send|share|submit|publish|run|analy[sz]e|write|deliver|update|check|confirm|provide|verify|deploy|schedule|contact|coordinate|document|design|evaluate|open|close|compare|extract|summari[sz]e|measure|approve|install|execute|export)\b/
+    /\b([A-Z][A-Za-z'-]*(?:\s+[A-Z][A-Za-z'-]*){0,2})\s+will\s+(?:handle|finish|complete|prepare|create|review|fix|test|build|send|share|submit|publish|run|analy[sz]e|write|deliver|update|check|confirm|provide|verify|deploy|schedule|contact|coordinate|document|design|evaluate|open|close|compare|extract|summari[sz]e|measure|approve|install|execute|export)\b/
   ]);
 
   fields.recipient = capture(text, [
@@ -385,7 +406,8 @@ export function analyzeMessage(
     }, "missing-deliverable");
   }
 
-  const explicitNoDeadline = /\b(?:no deadline(?: is)? (?:needed|required|necessary)|deadline (?:is )?(?:not needed|required|necessary)|without a deadline|no specific deadline)\b/i.exec(text);
+  // Only negative wording counts: "the deadline is required" must not erase a real deadline.
+  const explicitNoDeadline = /\b(?:no deadline(?: is)? (?:needed|required|necessary)|deadline (?:is )?not (?:needed|required|necessary)|without a deadline|no specific deadline)\b/i.exec(text);
   if (explicitNoDeadline) fields.deadline = normalizeWhitespace(explicitNoDeadline[0]);
 
   const deadlineSignal = /\b(?:asap|soon|shortly|later|before the meeting|by the meeting|end of day|eod|tomorrow|tonight|today|next week|next month|by friday|by monday|by tuesday|by wednesday|by thursday|by saturday|by sunday|\d{4}-\d{2}-\d{2})\b/i;

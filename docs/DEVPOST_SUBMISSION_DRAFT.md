@@ -63,7 +63,7 @@ Source repository: https://github.com/gourav-ai-engineer/Taskforge
 
 The analyzer uses deterministic, explainable heuristics rather than external AI inference. It checks for missing owners and deliverables, vague language, relative deadlines, ambiguous references, dependencies, multiple actions, and potentially conflicting timing. The interface uses editable structured fields, evidence excerpts, field-to-finding navigation, visible status messaging, and protected manual handoff edits.
 
-The latest verified implementation commit passed lint, TypeScript typecheck, 39 unit tests, dependency audit, and production build: https://github.com/gourav-ai-engineer/Taskforge/actions/runs/39917562164.
+The analysis engine has 58 unit tests. Lint, TypeScript typecheck, the unit tests, dependency audit, and production build run in GitHub Actions on every push to main: https://github.com/gourav-ai-engineer/Taskforge/actions.
 
 ## Accessibility and privacy
 

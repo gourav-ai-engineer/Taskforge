@@ -96,4 +96,4 @@ This implementation uses no external AI inference API. It uses open-source front
 7. Close with the local-first privacy model and heuristic limitations.
 
 ## Project status
-The latest implementation commit has passed GitHub Actions checks: lint, TypeScript typecheck, 39 unit tests, dependency audit, and production build. See [the successful workflow](https://github.com/gourav-ai-engineer/Taskforge/actions/runs/39917562164). Manual browser, keyboard-only, screen-reader, and public deployment verification still need to be completed before claiming full accessibility or submission readiness.
+The analysis engine has 58 unit tests. Lint, TypeScript typecheck, unit tests, dependency audit, and production build pass locally, and GitHub Actions runs the same checks on every push to main ([workflow runs](https://github.com/gourav-ai-engineer/Taskforge/actions)). Manual browser, keyboard-only, screen-reader, and public deployment verification still need to be completed before claiming full accessibility or submission readiness.
